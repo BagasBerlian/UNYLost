@@ -1,0 +1,1430 @@
+{
+  error: TypeError: Cannot set properties of undefined (setting 'message')
+      at ValidatorsImpl.withMessage (D:\Lets Code\Mobile App\UNYLost\backend\node_modules\express-validator\lib\chain\validators-impl.js:25:36)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\routes\items.js:302:30)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14)
+      at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)
+      at Module.load (node:internal/modules/cjs/loader:1208:32)
+      at Module._load (node:internal/modules/cjs/loader:1024:12)
+      at Module.require (node:internal/modules/cjs/loader:1233:19)
+      at require (node:internal/modules/helpers:179:18)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\app.js:17:20)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14),
+  level: 'error',
+  message: "uncaughtException: Cannot set properties of undefined (setting 'message')\n" +
+    "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:17:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  stack: "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:17:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  exception: true,
+  date: 'Mon Jun 16 2025 03:32:39 GMT+0700 (Western Indonesia Time)',
+  process: {
+    pid: 7092,
+    uid: null,
+    gid: null,
+    cwd: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend',
+    execPath: 'C:\\Program Files\\nodejs\\node.exe',
+    version: 'v20.16.0',
+    argv: [
+      'C:\\Program Files\\nodejs\\node.exe',
+      'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js'
+    ],
+    memoryUsage: {
+      rss: 134135808,
+      heapTotal: 98177024,
+      heapUsed: 63673328,
+      external: 3318475,
+      arrayBuffers: 66816
+    }
+  },
+  os: { loadavg: [ 0, 0, 0 ], uptime: 114786.484 },
+  trace: [
+    {
+      column: 36,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js',
+      function: 'ValidatorsImpl.withMessage',
+      line: 25,
+      method: 'withMessage',
+      native: false
+    },
+    {
+      column: 30,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js',
+      function: null,
+      line: 302,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    },
+    {
+      column: 10,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._extensions..js',
+      line: 1416,
+      method: '.js',
+      native: false
+    },
+    {
+      column: 32,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.load',
+      line: 1208,
+      method: 'load',
+      native: false
+    },
+    {
+      column: 12,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._load',
+      line: 1024,
+      method: '_load',
+      native: false
+    },
+    {
+      column: 19,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.require',
+      line: 1233,
+      method: 'require',
+      native: false
+    },
+    {
+      column: 18,
+      file: 'node:internal/modules/helpers',
+      function: 'require',
+      line: 179,
+      method: null,
+      native: false
+    },
+    {
+      column: 20,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js',
+      function: null,
+      line: 17,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    }
+  ],
+  service: 'uny-lost-backend',
+  timestamp: '2025-06-16 03:32:39'
+}
+{
+  error: TypeError: Cannot set properties of undefined (setting 'message')
+      at ValidatorsImpl.withMessage (D:\Lets Code\Mobile App\UNYLost\backend\node_modules\express-validator\lib\chain\validators-impl.js:25:36)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\routes\items.js:302:30)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14)
+      at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)
+      at Module.load (node:internal/modules/cjs/loader:1208:32)
+      at Module._load (node:internal/modules/cjs/loader:1024:12)
+      at Module.require (node:internal/modules/cjs/loader:1233:19)
+      at require (node:internal/modules/helpers:179:18)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\app.js:17:20)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14),
+  level: 'error',
+  message: "uncaughtException: Cannot set properties of undefined (setting 'message')\n" +
+    "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:17:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  stack: "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:17:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  exception: true,
+  date: 'Mon Jun 16 2025 03:43:35 GMT+0700 (Western Indonesia Time)',
+  process: {
+    pid: 20440,
+    uid: null,
+    gid: null,
+    cwd: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend',
+    execPath: 'C:\\Program Files\\nodejs\\node.exe',
+    version: 'v20.16.0',
+    argv: [
+      'C:\\Program Files\\nodejs\\node.exe',
+      'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js'
+    ],
+    memoryUsage: {
+      rss: 133156864,
+      heapTotal: 98439168,
+      heapUsed: 63439880,
+      external: 3293271,
+      arrayBuffers: 66640
+    }
+  },
+  os: { loadavg: [ 0, 0, 0 ], uptime: 115441.703 },
+  trace: [
+    {
+      column: 36,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js',
+      function: 'ValidatorsImpl.withMessage',
+      line: 25,
+      method: 'withMessage',
+      native: false
+    },
+    {
+      column: 30,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js',
+      function: null,
+      line: 302,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    },
+    {
+      column: 10,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._extensions..js',
+      line: 1416,
+      method: '.js',
+      native: false
+    },
+    {
+      column: 32,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.load',
+      line: 1208,
+      method: 'load',
+      native: false
+    },
+    {
+      column: 12,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._load',
+      line: 1024,
+      method: '_load',
+      native: false
+    },
+    {
+      column: 19,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.require',
+      line: 1233,
+      method: 'require',
+      native: false
+    },
+    {
+      column: 18,
+      file: 'node:internal/modules/helpers',
+      function: 'require',
+      line: 179,
+      method: null,
+      native: false
+    },
+    {
+      column: 20,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js',
+      function: null,
+      line: 17,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    }
+  ],
+  service: 'uny-lost-backend',
+  timestamp: '2025-06-16 03:43:35'
+}
+{
+  error: TypeError: Cannot set properties of undefined (setting 'message')
+      at ValidatorsImpl.withMessage (D:\Lets Code\Mobile App\UNYLost\backend\node_modules\express-validator\lib\chain\validators-impl.js:25:36)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\routes\items.js:302:30)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14)
+      at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)
+      at Module.load (node:internal/modules/cjs/loader:1208:32)
+      at Module._load (node:internal/modules/cjs/loader:1024:12)
+      at Module.require (node:internal/modules/cjs/loader:1233:19)
+      at require (node:internal/modules/helpers:179:18)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\app.js:17:20)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14),
+  level: 'error',
+  message: "uncaughtException: Cannot set properties of undefined (setting 'message')\n" +
+    "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:17:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  stack: "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:17:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  exception: true,
+  date: 'Mon Jun 16 2025 03:46:48 GMT+0700 (Western Indonesia Time)',
+  process: {
+    pid: 6000,
+    uid: null,
+    gid: null,
+    cwd: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend',
+    execPath: 'C:\\Program Files\\nodejs\\node.exe',
+    version: 'v20.16.0',
+    argv: [
+      'C:\\Program Files\\nodejs\\node.exe',
+      'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js'
+    ],
+    memoryUsage: {
+      rss: 136859648,
+      heapTotal: 97914880,
+      heapUsed: 67969160,
+      external: 3318475,
+      arrayBuffers: 66817
+    }
+  },
+  os: { loadavg: [ 0, 0, 0 ], uptime: 115635.125 },
+  trace: [
+    {
+      column: 36,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js',
+      function: 'ValidatorsImpl.withMessage',
+      line: 25,
+      method: 'withMessage',
+      native: false
+    },
+    {
+      column: 30,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js',
+      function: null,
+      line: 302,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    },
+    {
+      column: 10,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._extensions..js',
+      line: 1416,
+      method: '.js',
+      native: false
+    },
+    {
+      column: 32,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.load',
+      line: 1208,
+      method: 'load',
+      native: false
+    },
+    {
+      column: 12,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._load',
+      line: 1024,
+      method: '_load',
+      native: false
+    },
+    {
+      column: 19,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.require',
+      line: 1233,
+      method: 'require',
+      native: false
+    },
+    {
+      column: 18,
+      file: 'node:internal/modules/helpers',
+      function: 'require',
+      line: 179,
+      method: null,
+      native: false
+    },
+    {
+      column: 20,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js',
+      function: null,
+      line: 17,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    }
+  ],
+  service: 'uny-lost-backend',
+  timestamp: '2025-06-16 03:46:48'
+}
+{
+  error: TypeError: Cannot set properties of undefined (setting 'message')
+      at ValidatorsImpl.withMessage (D:\Lets Code\Mobile App\UNYLost\backend\node_modules\express-validator\lib\chain\validators-impl.js:25:36)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\routes\items.js:302:30)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14)
+      at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)
+      at Module.load (node:internal/modules/cjs/loader:1208:32)
+      at Module._load (node:internal/modules/cjs/loader:1024:12)
+      at Module.require (node:internal/modules/cjs/loader:1233:19)
+      at require (node:internal/modules/helpers:179:18)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\app.js:17:20)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14),
+  level: 'error',
+  message: "uncaughtException: Cannot set properties of undefined (setting 'message')\n" +
+    "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:17:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  stack: "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:17:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  exception: true,
+  date: 'Mon Jun 16 2025 03:49:47 GMT+0700 (Western Indonesia Time)',
+  process: {
+    pid: 15412,
+    uid: null,
+    gid: null,
+    cwd: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend',
+    execPath: 'C:\\Program Files\\nodejs\\node.exe',
+    version: 'v20.16.0',
+    argv: [
+      'C:\\Program Files\\nodejs\\node.exe',
+      'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js'
+    ],
+    memoryUsage: {
+      rss: 136515584,
+      heapTotal: 97914880,
+      heapUsed: 67813288,
+      external: 3318475,
+      arrayBuffers: 66817
+    }
+  },
+  os: { loadavg: [ 0, 0, 0 ], uptime: 115813.968 },
+  trace: [
+    {
+      column: 36,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js',
+      function: 'ValidatorsImpl.withMessage',
+      line: 25,
+      method: 'withMessage',
+      native: false
+    },
+    {
+      column: 30,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js',
+      function: null,
+      line: 302,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    },
+    {
+      column: 10,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._extensions..js',
+      line: 1416,
+      method: '.js',
+      native: false
+    },
+    {
+      column: 32,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.load',
+      line: 1208,
+      method: 'load',
+      native: false
+    },
+    {
+      column: 12,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._load',
+      line: 1024,
+      method: '_load',
+      native: false
+    },
+    {
+      column: 19,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.require',
+      line: 1233,
+      method: 'require',
+      native: false
+    },
+    {
+      column: 18,
+      file: 'node:internal/modules/helpers',
+      function: 'require',
+      line: 179,
+      method: null,
+      native: false
+    },
+    {
+      column: 20,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js',
+      function: null,
+      line: 17,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    }
+  ],
+  service: 'uny-lost-backend',
+  timestamp: '2025-06-16 03:49:47'
+}
+{
+  error: TypeError: Cannot set properties of undefined (setting 'message')
+      at ValidatorsImpl.withMessage (D:\Lets Code\Mobile App\UNYLost\backend\node_modules\express-validator\lib\chain\validators-impl.js:25:36)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\routes\items.js:302:30)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14)
+      at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)
+      at Module.load (node:internal/modules/cjs/loader:1208:32)
+      at Module._load (node:internal/modules/cjs/loader:1024:12)
+      at Module.require (node:internal/modules/cjs/loader:1233:19)
+      at require (node:internal/modules/helpers:179:18)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\app.js:17:20)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14),
+  level: 'error',
+  message: "uncaughtException: Cannot set properties of undefined (setting 'message')\n" +
+    "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:17:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  stack: "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:17:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  exception: true,
+  date: 'Mon Jun 16 2025 03:49:50 GMT+0700 (Western Indonesia Time)',
+  process: {
+    pid: 17484,
+    uid: null,
+    gid: null,
+    cwd: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend',
+    execPath: 'C:\\Program Files\\nodejs\\node.exe',
+    version: 'v20.16.0',
+    argv: [
+      'C:\\Program Files\\nodejs\\node.exe',
+      'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js'
+    ],
+    memoryUsage: {
+      rss: 131244032,
+      heapTotal: 96604160,
+      heapUsed: 66976368,
+      external: 3318475,
+      arrayBuffers: 66817
+    }
+  },
+  os: { loadavg: [ 0, 0, 0 ], uptime: 115817.125 },
+  trace: [
+    {
+      column: 36,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js',
+      function: 'ValidatorsImpl.withMessage',
+      line: 25,
+      method: 'withMessage',
+      native: false
+    },
+    {
+      column: 30,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js',
+      function: null,
+      line: 302,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    },
+    {
+      column: 10,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._extensions..js',
+      line: 1416,
+      method: '.js',
+      native: false
+    },
+    {
+      column: 32,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.load',
+      line: 1208,
+      method: 'load',
+      native: false
+    },
+    {
+      column: 12,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._load',
+      line: 1024,
+      method: '_load',
+      native: false
+    },
+    {
+      column: 19,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.require',
+      line: 1233,
+      method: 'require',
+      native: false
+    },
+    {
+      column: 18,
+      file: 'node:internal/modules/helpers',
+      function: 'require',
+      line: 179,
+      method: null,
+      native: false
+    },
+    {
+      column: 20,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js',
+      function: null,
+      line: 17,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    }
+  ],
+  service: 'uny-lost-backend',
+  timestamp: '2025-06-16 03:49:50'
+}
+{
+  error: TypeError: Cannot set properties of undefined (setting 'message')
+      at ValidatorsImpl.withMessage (D:\Lets Code\Mobile App\UNYLost\backend\node_modules\express-validator\lib\chain\validators-impl.js:25:36)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\routes\items.js:302:30)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14)
+      at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)
+      at Module.load (node:internal/modules/cjs/loader:1208:32)
+      at Module._load (node:internal/modules/cjs/loader:1024:12)
+      at Module.require (node:internal/modules/cjs/loader:1233:19)
+      at require (node:internal/modules/helpers:179:18)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\app.js:17:20)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14),
+  level: 'error',
+  message: "uncaughtException: Cannot set properties of undefined (setting 'message')\n" +
+    "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:17:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  stack: "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:17:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  exception: true,
+  date: 'Mon Jun 16 2025 03:49:58 GMT+0700 (Western Indonesia Time)',
+  process: {
+    pid: 22308,
+    uid: null,
+    gid: null,
+    cwd: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend',
+    execPath: 'C:\\Program Files\\nodejs\\node.exe',
+    version: 'v20.16.0',
+    argv: [
+      'C:\\Program Files\\nodejs\\node.exe',
+      'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js'
+    ],
+    memoryUsage: {
+      rss: 133451776,
+      heapTotal: 98963456,
+      heapUsed: 63393376,
+      external: 3318475,
+      arrayBuffers: 66816
+    }
+  },
+  os: { loadavg: [ 0, 0, 0 ], uptime: 115824.843 },
+  trace: [
+    {
+      column: 36,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js',
+      function: 'ValidatorsImpl.withMessage',
+      line: 25,
+      method: 'withMessage',
+      native: false
+    },
+    {
+      column: 30,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js',
+      function: null,
+      line: 302,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    },
+    {
+      column: 10,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._extensions..js',
+      line: 1416,
+      method: '.js',
+      native: false
+    },
+    {
+      column: 32,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.load',
+      line: 1208,
+      method: 'load',
+      native: false
+    },
+    {
+      column: 12,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._load',
+      line: 1024,
+      method: '_load',
+      native: false
+    },
+    {
+      column: 19,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.require',
+      line: 1233,
+      method: 'require',
+      native: false
+    },
+    {
+      column: 18,
+      file: 'node:internal/modules/helpers',
+      function: 'require',
+      line: 179,
+      method: null,
+      native: false
+    },
+    {
+      column: 20,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js',
+      function: null,
+      line: 17,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    }
+  ],
+  service: 'uny-lost-backend',
+  timestamp: '2025-06-16 03:49:58'
+}
+{
+  error: TypeError: Cannot set properties of undefined (setting 'message')
+      at ValidatorsImpl.withMessage (D:\Lets Code\Mobile App\UNYLost\backend\node_modules\express-validator\lib\chain\validators-impl.js:25:36)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\routes\items.js:302:30)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14)
+      at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)
+      at Module.load (node:internal/modules/cjs/loader:1208:32)
+      at Module._load (node:internal/modules/cjs/loader:1024:12)
+      at Module.require (node:internal/modules/cjs/loader:1233:19)
+      at require (node:internal/modules/helpers:179:18)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\app.js:17:20)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14),
+  level: 'error',
+  message: "uncaughtException: Cannot set properties of undefined (setting 'message')\n" +
+    "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:17:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  stack: "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:17:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  exception: true,
+  date: 'Mon Jun 16 2025 03:57:48 GMT+0700 (Western Indonesia Time)',
+  process: {
+    pid: 5908,
+    uid: null,
+    gid: null,
+    cwd: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend',
+    execPath: 'C:\\Program Files\\nodejs\\node.exe',
+    version: 'v20.16.0',
+    argv: [
+      'C:\\Program Files\\nodejs\\node.exe',
+      'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js'
+    ],
+    memoryUsage: {
+      rss: 134254592,
+      heapTotal: 97128448,
+      heapUsed: 67116616,
+      external: 3318218,
+      arrayBuffers: 66560
+    }
+  },
+  os: { loadavg: [ 0, 0, 0 ], uptime: 116295.437 },
+  trace: [
+    {
+      column: 36,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js',
+      function: 'ValidatorsImpl.withMessage',
+      line: 25,
+      method: 'withMessage',
+      native: false
+    },
+    {
+      column: 30,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js',
+      function: null,
+      line: 302,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    },
+    {
+      column: 10,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._extensions..js',
+      line: 1416,
+      method: '.js',
+      native: false
+    },
+    {
+      column: 32,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.load',
+      line: 1208,
+      method: 'load',
+      native: false
+    },
+    {
+      column: 12,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._load',
+      line: 1024,
+      method: '_load',
+      native: false
+    },
+    {
+      column: 19,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.require',
+      line: 1233,
+      method: 'require',
+      native: false
+    },
+    {
+      column: 18,
+      file: 'node:internal/modules/helpers',
+      function: 'require',
+      line: 179,
+      method: null,
+      native: false
+    },
+    {
+      column: 20,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js',
+      function: null,
+      line: 17,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    }
+  ],
+  service: 'uny-lost-backend',
+  timestamp: '2025-06-16 03:57:48'
+}
+{
+  error: TypeError: Cannot set properties of undefined (setting 'message')
+      at ValidatorsImpl.withMessage (D:\Lets Code\Mobile App\UNYLost\backend\node_modules\express-validator\lib\chain\validators-impl.js:25:36)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\routes\items.js:302:30)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14)
+      at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)
+      at Module.load (node:internal/modules/cjs/loader:1208:32)
+      at Module._load (node:internal/modules/cjs/loader:1024:12)
+      at Module.require (node:internal/modules/cjs/loader:1233:19)
+      at require (node:internal/modules/helpers:179:18)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\app.js:16:20)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14),
+  level: 'error',
+  message: "uncaughtException: Cannot set properties of undefined (setting 'message')\n" +
+    "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:16:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  stack: "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:16:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  exception: true,
+  date: 'Mon Jun 16 2025 04:08:48 GMT+0700 (Western Indonesia Time)',
+  process: {
+    pid: 14716,
+    uid: null,
+    gid: null,
+    cwd: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend',
+    execPath: 'C:\\Program Files\\nodejs\\node.exe',
+    version: 'v20.16.0',
+    argv: [
+      'C:\\Program Files\\nodejs\\node.exe',
+      'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js'
+    ],
+    memoryUsage: {
+      rss: 135761920,
+      heapTotal: 97652736,
+      heapUsed: 65566776,
+      external: 3318218,
+      arrayBuffers: 66560
+    }
+  },
+  os: { loadavg: [ 0, 0, 0 ], uptime: 116955.328 },
+  trace: [
+    {
+      column: 36,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js',
+      function: 'ValidatorsImpl.withMessage',
+      line: 25,
+      method: 'withMessage',
+      native: false
+    },
+    {
+      column: 30,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js',
+      function: null,
+      line: 302,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    },
+    {
+      column: 10,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._extensions..js',
+      line: 1416,
+      method: '.js',
+      native: false
+    },
+    {
+      column: 32,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.load',
+      line: 1208,
+      method: 'load',
+      native: false
+    },
+    {
+      column: 12,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._load',
+      line: 1024,
+      method: '_load',
+      native: false
+    },
+    {
+      column: 19,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.require',
+      line: 1233,
+      method: 'require',
+      native: false
+    },
+    {
+      column: 18,
+      file: 'node:internal/modules/helpers',
+      function: 'require',
+      line: 179,
+      method: null,
+      native: false
+    },
+    {
+      column: 20,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js',
+      function: null,
+      line: 16,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    }
+  ],
+  service: 'uny-lost-backend',
+  timestamp: '2025-06-16 04:08:48'
+}
+{
+  error: TypeError: Cannot set properties of undefined (setting 'message')
+      at ValidatorsImpl.withMessage (D:\Lets Code\Mobile App\UNYLost\backend\node_modules\express-validator\lib\chain\validators-impl.js:25:36)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\routes\items.js:302:30)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14)
+      at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)
+      at Module.load (node:internal/modules/cjs/loader:1208:32)
+      at Module._load (node:internal/modules/cjs/loader:1024:12)
+      at Module.require (node:internal/modules/cjs/loader:1233:19)
+      at require (node:internal/modules/helpers:179:18)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\app.js:16:20)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14),
+  level: 'error',
+  message: "uncaughtException: Cannot set properties of undefined (setting 'message')\n" +
+    "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:16:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  stack: "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:16:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  exception: true,
+  date: 'Mon Jun 16 2025 04:10:10 GMT+0700 (Western Indonesia Time)',
+  process: {
+    pid: 20188,
+    uid: null,
+    gid: null,
+    cwd: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend',
+    execPath: 'C:\\Program Files\\nodejs\\node.exe',
+    version: 'v20.16.0',
+    argv: [
+      'C:\\Program Files\\nodejs\\node.exe',
+      'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js'
+    ],
+    memoryUsage: {
+      rss: 135757824,
+      heapTotal: 97128448,
+      heapUsed: 65373312,
+      external: 3318218,
+      arrayBuffers: 66560
+    }
+  },
+  os: { loadavg: [ 0, 0, 0 ], uptime: 117037.156 },
+  trace: [
+    {
+      column: 36,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js',
+      function: 'ValidatorsImpl.withMessage',
+      line: 25,
+      method: 'withMessage',
+      native: false
+    },
+    {
+      column: 30,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js',
+      function: null,
+      line: 302,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    },
+    {
+      column: 10,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._extensions..js',
+      line: 1416,
+      method: '.js',
+      native: false
+    },
+    {
+      column: 32,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.load',
+      line: 1208,
+      method: 'load',
+      native: false
+    },
+    {
+      column: 12,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._load',
+      line: 1024,
+      method: '_load',
+      native: false
+    },
+    {
+      column: 19,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.require',
+      line: 1233,
+      method: 'require',
+      native: false
+    },
+    {
+      column: 18,
+      file: 'node:internal/modules/helpers',
+      function: 'require',
+      line: 179,
+      method: null,
+      native: false
+    },
+    {
+      column: 20,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js',
+      function: null,
+      line: 16,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    }
+  ],
+  service: 'uny-lost-backend',
+  timestamp: '2025-06-16 04:10:10'
+}
+{
+  error: TypeError: Cannot set properties of undefined (setting 'message')
+      at ValidatorsImpl.withMessage (D:\Lets Code\Mobile App\UNYLost\backend\node_modules\express-validator\lib\chain\validators-impl.js:25:36)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\routes\items.js:302:30)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14)
+      at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)
+      at Module.load (node:internal/modules/cjs/loader:1208:32)
+      at Module._load (node:internal/modules/cjs/loader:1024:12)
+      at Module.require (node:internal/modules/cjs/loader:1233:19)
+      at require (node:internal/modules/helpers:179:18)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\app.js:16:20)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14),
+  level: 'error',
+  message: "uncaughtException: Cannot set properties of undefined (setting 'message')\n" +
+    "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:16:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  stack: "TypeError: Cannot set properties of undefined (setting 'message')\n" +
+    '    at ValidatorsImpl.withMessage (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js:25:36)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js:302:30)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:16:20)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)',
+  exception: true,
+  date: 'Mon Jun 16 2025 04:10:19 GMT+0700 (Western Indonesia Time)',
+  process: {
+    pid: 20432,
+    uid: null,
+    gid: null,
+    cwd: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend',
+    execPath: 'C:\\Program Files\\nodejs\\node.exe',
+    version: 'v20.16.0',
+    argv: [
+      'C:\\Program Files\\nodejs\\node.exe',
+      'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js'
+    ],
+    memoryUsage: {
+      rss: 135766016,
+      heapTotal: 97390592,
+      heapUsed: 65284344,
+      external: 3318218,
+      arrayBuffers: 66560
+    }
+  },
+  os: { loadavg: [ 0, 0, 0 ], uptime: 117045.906 },
+  trace: [
+    {
+      column: 36,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express-validator\\lib\\chain\\validators-impl.js',
+      function: 'ValidatorsImpl.withMessage',
+      line: 25,
+      method: 'withMessage',
+      native: false
+    },
+    {
+      column: 30,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\items.js',
+      function: null,
+      line: 302,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    },
+    {
+      column: 10,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._extensions..js',
+      line: 1416,
+      method: '.js',
+      native: false
+    },
+    {
+      column: 32,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.load',
+      line: 1208,
+      method: 'load',
+      native: false
+    },
+    {
+      column: 12,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._load',
+      line: 1024,
+      method: '_load',
+      native: false
+    },
+    {
+      column: 19,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.require',
+      line: 1233,
+      method: 'require',
+      native: false
+    },
+    {
+      column: 18,
+      file: 'node:internal/modules/helpers',
+      function: 'require',
+      line: 179,
+      method: null,
+      native: false
+    },
+    {
+      column: 20,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js',
+      function: null,
+      line: 16,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    }
+  ],
+  service: 'uny-lost-backend',
+  timestamp: '2025-06-16 04:10:19'
+}
