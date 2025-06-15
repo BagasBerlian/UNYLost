@@ -1,0 +1,19 @@
+# AI Layer - Python
+ai-layer/app/models/**
+ai-layer/venv/
+ai-layer/*.env
+ai-layer/embeddings/**
+ai-layer/__pycache__/
+ai-layer/**/__pycache__/
+ai-layer/**/*.py[cod]
+ai-layer/**/*$py.class
+ai-layer/firebase_key/**
+ai-layer/temp_images/**
+ai-layer/logs/**
+ai-layer/firebase_key/*
+
+#backend
+backend/node_modules
+backend/*.env
+backend/config/*
+
