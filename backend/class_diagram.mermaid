@@ -1,0 +1,442 @@
+classDiagram
+    %% ===== DOMAIN MODELS =====
+    class User {
+        +String id (UUID)
+        +String firstName
+        +String lastName
+        +String email
+        +String passwordHash
+        +String whatsappNumber
+        +Boolean isWhatsappVerified
+        +Boolean agreeNotification
+        +String verificationCode
+        +Boolean verified
+        +DateTime verifiedAt
+        +DateTime lastLogin
+        +DateTime createdAt
+        +DateTime updatedAt
+        +Boolean isActive
+        +String profilePicture
+        +JSON notificationSettings
+        
+        +validatePassword(password: String): Boolean
+        +generateVerificationCode(): String
+        +isVerificationCodeExpired(): Boolean
+        +updateLastLogin(): void
+        +hashPassword(password: String): String
+        +toSafeJSON(): Object
+        +getStatistics(): UserStats
+    }
+
+    class LostItem {
+        +String id (UUID)
+        +String userId (FK)
+        +String itemName
+        +String description
+        +String category
+        +String lastSeenLocation
+        +Date dateLost
+        +Decimal reward
+        +JSON images[]
+        +String status (active|has_matches|resolved|expired)
+        +Boolean aiProcessed
+        +DateTime lastMatchedAt
+        +DateTime createdAt
+        +DateTime updatedAt
+        
+        +updateStatus(newStatus: String): void
+        +addImage(imageUrl: String): void
+        +setAIProcessed(): void
+        +isExpired(): Boolean
+        +getMatchCount(): Number
+    }
+
+    class FoundItem {
+        +String id (UUID)
+        +String userId (FK)
+        +String itemName
+        +String description
+        +String category
+        +String locationFound
+        +Date foundDate
+        +Time foundTime
+        +JSON images[]
+        +String status (available|pending_claim|claimed|expired)
+        +Boolean aiProcessed
+        +DateTime lastMatchedAt
+        +DateTime createdAt
+        +DateTime updatedAt
+        
+        +updateStatus(newStatus: String): void
+        +addImage(imageUrl: String): void
+        +setAIProcessed(): void
+        +isExpired(): Boolean
+        +getPendingClaimsCount(): Number
+    }
+
+    class Match {
+        +String id (UUID)
+        +String lostItemId (FK)
+        +String foundItemId (FK)
+        +Float similarity (0.0-1.0)
+        +String matchType (image|text|hybrid)
+        +String status (pending|claimed|expired)
+        +DateTime detectedAt
+        +String matchingVersion
+        +DateTime createdAt
+        +DateTime updatedAt
+        
+        +isHighSimilarity(): Boolean
+        +expire(): void
+        +claim(): void
+        +getPercentage(): Number
+    }
+
+    class Claim {
+        +String id (UUID)
+        +String claimerId (FK)
+        +String foundItemId (FK)
+        +String lostItemId (FK)
+        +String story
+        +JSON evidenceImages[]
+        +String status (pending|approved|rejected)
+        +String rejectionReason
+        +DateTime approvedAt
+        +DateTime rejectedAt
+        +DateTime createdAt
+        +DateTime updatedAt
+        
+        +approve(): void
+        +reject(reason: String): void
+        +addEvidence(imageUrl: String): void
+        +isPending(): Boolean
+    }
+
+    class Notification {
+        +String id (UUID)
+        +String userId (FK)
+        +String type (match_found|claim_received|claim_approved|claim_rejected)
+        +String title
+        +String message
+        +JSON data
+        +Boolean read
+        +DateTime sentAt
+        +DateTime readAt
+        +DateTime createdAt
+        
+        +markAsRead(): void
+        +isExpired(): Boolean
+    }
+
+    %% ===== CONTROLLERS =====
+    class AuthController {
+        +register(req: Request, res: Response): Response
+        +verifyEmail(req: Request, res: Response): Response
+        +resendVerification(req: Request, res: Response): Response
+        +login(req: Request, res: Response): Response
+        +logout(req: Request, res: Response): Response
+        +verifyWhatsApp(req: Request, res: Response): Response
+        +forgotPassword(req: Request, res: Response): Response
+        +resetPassword(req: Request, res: Response): Response
+        +getProfile(req: Request, res: Response): Response
+        +updateProfile(req: Request, res: Response): Response
+    }
+
+    class ItemController {
+        +createFoundItem(req: Request, res: Response): Response
+        +createLostItem(req: Request, res: Response): Response
+        +getUserItems(req: Request, res: Response): Response
+        +getItemById(req: Request, res: Response): Response
+        +updateItemStatus(req: Request, res: Response): Response
+        +deleteItem(req: Request, res: Response): Response
+        +getItemMatches(req: Request, res: Response): Response
+        +uploadItemImages(req: Request, res: Response): Response
+    }
+
+    class MatchController {
+        +getUserMatches(req: Request, res: Response): Response
+        +getMatchDetail(req: Request, res: Response): Response
+        +updateMatchStatus(req: Request, res: Response): Response
+        +triggerManualMatching(req: Request, res: Response): Response
+    }
+
+    class ClaimController {
+        +createClaim(req: Request, res: Response): Response
+        +getUserClaims(req: Request, res: Response): Response
+        +getReceivedClaims(req: Request, res: Response): Response
+        +getClaimDetail(req: Request, res: Response): Response
+        +approveClaim(req: Request, res: Response): Response
+        +rejectClaim(req: Request, res: Response): Response
+        +uploadClaimEvidence(req: Request, res: Response): Response
+    }
+
+    class NotificationController {
+        +getUserNotifications(req: Request, res: Response): Response
+        +markNotificationRead(req: Request, res: Response): Response
+        +markAllRead(req: Request, res: Response): Response
+        +deleteNotification(req: Request, res: Response): Response
+    }
+
+    class DashboardController {
+        +getDashboardData(req: Request, res: Response): Response
+        +getUserStatistics(req: Request, res: Response): Response
+        +getRecentActivity(req: Request, res: Response): Response
+    }
+
+    %% ===== SERVICES =====
+    class AuthService {
+        +registerUser(userData: RegisterData): Promise~User~
+        +verifyUserEmail(email: String, code: String): Promise~Boolean~
+        +authenticateUser(email: String, password: String): Promise~AuthResult~
+        +generateVerificationCode(): String
+        +sendVerificationEmail(email: String, code: String): Promise~Boolean~
+        +resendVerificationCode(email: String): Promise~Boolean~
+        +validateJWTToken(token: String): Promise~User~
+        +refreshUserToken(refreshToken: String): Promise~String~
+        +resetPassword(email: String): Promise~Boolean~
+        +changePassword(userId: String, oldPassword: String, newPassword: String): Promise~Boolean~
+    }
+
+    class ItemService {
+        +createFoundItem(userId: String, itemData: FoundItemData): Promise~FoundItem~
+        +createLostItem(userId: String, itemData: LostItemData): Promise~LostItem~
+        +getUserItems(userId: String, filters: Object): Promise~ItemsList~
+        +getItemById(itemId: String, type: String): Promise~Item~
+        +updateItemStatus(itemId: String, status: String): Promise~Boolean~
+        +deleteItem(itemId: String, userId: String): Promise~Boolean~
+        +processItemImages(files: FileArray): Promise~String[]~
+        +triggerAIMatching(item: Item): Promise~MatchResult~
+    }
+
+    class MatchService {
+        +getUserMatches(userId: String, filters: Object): Promise~Match[]~
+        +getMatchDetail(matchId: String): Promise~MatchDetail~
+        +createMatch(lostItemId: String, foundItemId: String, similarity: Float): Promise~Match~
+        +updateMatchStatus(matchId: String, status: String): Promise~Boolean~
+        +processAIMatches(aiMatches: AIMatchResult[]): Promise~Match[]~
+        +expireOldMatches(): Promise~Number~
+        +getMatchStatistics(userId: String): Promise~MatchStats~
+    }
+
+    class ClaimService {
+        +createClaim(claimData: ClaimData): Promise~Claim~
+        +getUserClaims(userId: String, filters: Object): Promise~Claim[]~
+        +getReceivedClaims(userId: String, filters: Object): Promise~Claim[]~
+        +getClaimDetail(claimId: String): Promise~ClaimDetail~
+        +approveClaim(claimId: String, approverId: String): Promise~Boolean~
+        +rejectClaim(claimId: String, reason: String): Promise~Boolean~
+        +processClaimEvidence(claimId: String, files: FileArray): Promise~Boolean~
+        +notifyClaimStatus(claim: Claim): Promise~Boolean~
+    }
+
+    class NotificationService {
+        +sendMatchFoundNotification(userId: String, matchData: Object): Promise~Boolean~
+        +sendClaimNotification(userId: String, claimData: Object): Promise~Boolean~
+        +sendClaimStatusNotification(userId: String, statusData: Object): Promise~Boolean~
+        +createInAppNotification(userId: String, notificationData: Object): Promise~Notification~
+        +getUserNotifications(userId: String, filters: Object): Promise~Notification[]~
+        +markAsRead(notificationId: String): Promise~Boolean~
+        +deleteOldNotifications(): Promise~Number~
+    }
+
+    class WhatsAppService {
+        +verifyNumber(phoneNumber: String): Promise~VerificationResult~
+        +sendMessage(phoneNumber: String, message: String): Promise~Boolean~
+        +sendMatchFoundMessage(phoneNumber: String, matchData: Object): Promise~Boolean~
+        +sendClaimReceivedMessage(phoneNumber: String, claimData: Object): Promise~Boolean~
+        +sendClaimApprovedMessage(phoneNumber: String, contactData: Object): Promise~Boolean~
+        +sendClaimRejectedMessage(phoneNumber: String, reason: String): Promise~Boolean~
+        +canSendMessage(phoneNumber: String): Boolean
+        +trackMessageSent(phoneNumber: String): void
+    }
+
+    class EmailService {
+        +sendVerificationEmail(email: String, code: String): Promise~Boolean~
+        +sendWelcomeEmail(email: String, name: String): Promise~Boolean~
+        +sendPasswordResetEmail(email: String, resetLink: String): Promise~Boolean~
+        +sendItemMatchAlert(email: String, matchData: Object): Promise~Boolean~
+        +sendClaimNotificationEmail(email: String, claimData: Object): Promise~Boolean~
+        +loadTemplate(templateName: String): String
+        +formatTemplate(template: String, data: Object): String
+    }
+
+    class AIService {
+        +processFoundItem(itemData: FoundItemData): Promise~AIProcessResult~
+        +processLostItem(itemData: LostItemData): Promise~AIProcessResult~
+        +triggerBackgroundMatching(): Promise~BackgroundMatchResult~
+        +getItemMatches(itemId: String, itemType: String): Promise~AIMatch[]~
+        +generateEmbeddings(itemData: Object): Promise~EmbeddingResult~
+        +calculateSimilarity(item1: Object, item2: Object): Promise~Float~
+    }
+
+    class FileService {
+        +uploadToGoogleDrive(file: File, folder: String): Promise~String~
+        +uploadMultipleFiles(files: File[], folder: String): Promise~String[]~
+        +deleteFile(fileUrl: String): Promise~Boolean~
+        +validateFile(file: File): ValidationResult
+        +resizeImage(file: File, size: Object): Promise~File~
+        +generateThumbnail(imageFile: File): Promise~String~
+    }
+
+    class BackgroundJobService {
+        +scheduleAutoMatching(): void
+        +runAutoMatching(): Promise~MatchingReport~
+        +scheduleFileCleanup(): void
+        +runFileCleanup(): Promise~CleanupReport~
+        +scheduleNotificationCleanup(): void
+        +expireOldItems(): Promise~ExpirationReport~
+        +generateDailyReport(): Promise~DailyReport~
+    }
+
+    %% ===== MIDDLEWARE =====
+    class AuthMiddleware {
+        +authenticateToken(req: Request, res: Response, next: NextFunction): void
+        +requireVerification(req: Request, res: Response, next: NextFunction): void
+        +requireWhatsAppVerification(req: Request, res: Response, next: NextFunction): void
+        +rateLimitAuth(req: Request, res: Response, next: NextFunction): void
+        +checkItemOwnership(req: Request, res: Response, next: NextFunction): void
+    }
+
+    class ValidationMiddleware {
+        +validateRegistration(): ValidationChain[]
+        +validateLogin(): ValidationChain[]
+        +validateFoundItem(): ValidationChain[]
+        +validateLostItem(): ValidationChain[]
+        +validateClaim(): ValidationChain[]
+        +validateFile(): ValidationChain[]
+        +handleValidationErrors(req: Request, res: Response, next: NextFunction): void
+    }
+
+    class ErrorMiddleware {
+        +handleDatabaseError(error: Error, req: Request, res: Response, next: NextFunction): void
+        +handleValidationError(error: Error, req: Request, res: Response, next: NextFunction): void
+        +handleAuthError(error: Error, req: Request, res: Response, next: NextFunction): void
+        +handleFileError(error: Error, req: Request, res: Response, next: NextFunction): void
+        +handleAIServiceError(error: Error, req: Request, res: Response, next: NextFunction): void
+    }
+
+    %% ===== DATA TRANSFER OBJECTS =====
+    class RegisterData {
+        +String firstName
+        +String lastName
+        +String email
+        +String password
+        +String whatsappNumber
+        +Boolean agreeNotification
+    }
+
+    class FoundItemData {
+        +String itemName
+        +String description
+        +String category
+        +String locationFound
+        +Date foundDate
+        +Time foundTime
+        +File[] images
+    }
+
+    class LostItemData {
+        +String itemName
+        +String description
+        +String category
+        +String lastSeenLocation
+        +Date dateLost
+        +Decimal reward
+        +File[] images
+    }
+
+    class ClaimData {
+        +String foundItemId
+        +String lostItemId
+        +String story
+        +File[] evidenceImages
+    }
+
+    class MatchResult {
+        +String itemId
+        +Match[] matches
+        +Number totalMatches
+        +Boolean hasHighSimilarity
+    }
+
+    class UserStats {
+        +Object lostItems
+        +Object foundItems
+        +Object claims
+        +Object matches
+        +Number totalNotifications
+        +Number unreadNotifications
+    }
+
+    %% ===== RELATIONSHIPS =====
+    
+    %% User relationships
+    User ||--o{ LostItem : creates
+    User ||--o{ FoundItem : creates
+    User ||--o{ Claim : makes
+    User ||--o{ Notification : receives
+
+    %% Item relationships
+    LostItem ||--o{ Match : participates_in
+    FoundItem ||--o{ Match : participates_in
+    FoundItem ||--o{ Claim : receives
+    LostItem ||--o{ Claim : targets
+
+    %% Match relationships
+    Match }o--|| LostItem : lost_item
+    Match }o--|| FoundItem : found_item
+
+    %% Claim relationships
+    Claim }o--|| User : claimer
+    Claim }o--|| FoundItem : claimed_item
+    Claim }o--|| LostItem : for_lost_item
+
+    %% Controller uses Services
+    AuthController --> AuthService : uses
+    AuthController --> WhatsAppService : uses
+    AuthController --> EmailService : uses
+
+    ItemController --> ItemService : uses
+    ItemController --> AIService : uses
+    ItemController --> FileService : uses
+
+    MatchController --> MatchService : uses
+    MatchController --> AIService : uses
+
+    ClaimController --> ClaimService : uses
+    ClaimController --> NotificationService : uses
+    ClaimController --> WhatsAppService : uses
+
+    NotificationController --> NotificationService : uses
+
+    %% Service relationships
+    ItemService --> FileService : uses
+    ItemService --> AIService : uses
+    ItemService --> MatchService : uses
+
+    ClaimService --> NotificationService : uses
+    ClaimService --> WhatsAppService : uses
+    ClaimService --> EmailService : uses
+
+    MatchService --> NotificationService : uses
+    MatchService --> WhatsAppService : uses
+
+    NotificationService --> WhatsAppService : uses
+    NotificationService --> EmailService : uses
+
+    BackgroundJobService --> ItemService : uses
+    BackgroundJobService --> MatchService : uses
+    BackgroundJobService --> AIService : uses
+    BackgroundJobService --> NotificationService : uses
+
+    %% Middleware relationships
+    AuthMiddleware --> AuthService : validates_with
+    ValidationMiddleware --> AuthService : validates_with
+
+    %% DTOs usage
+    AuthService --> RegisterData : processes
+    ItemService --> FoundItemData : processes
+    ItemService --> LostItemData : processes
+    ClaimService --> ClaimData : processes
+    MatchService --> MatchResult : returns
+    AuthController --> UserStats : returns

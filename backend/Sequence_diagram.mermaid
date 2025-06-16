@@ -1,0 +1,418 @@
+sequenceDiagram
+    participant MA as 📱 Mobile App
+    participant BE as 🔧 Backend
+    participant DB as 📊 Database
+    participant AI as 🤖 AI Layer
+    participant FB as 🔥 Firebase
+    participant WA as 📱 WhatsApp API
+    participant EM as 📧 Email Service
+    participant GD as 📂 Google Drive
+
+    Note over MA,GD: 1. REGISTRATION WITH WHATSAPP VERIFICATION
+
+    MA->>MA: User fills form (firstName, lastName, email,<br/>password, whatsappNumber)
+    
+    MA->>BE: POST /api/auth/verify-whatsapp<br/>{phone: "+6281234567890"}
+    BE->>BE: Validate phone format & normalize
+    BE->>WA: Check WhatsApp registration status
+    WA-->>BE: {isValid: true, isRegistered: true}
+    BE-->>MA: {success: true, verified: true}
+    
+    MA->>MA: Show ✅ verified icon<br/>Enable "agree notification" checkbox
+    MA->>MA: User checks agreement & clicks register
+    
+    MA->>BE: POST /api/auth/register<br/>{firstName, lastName, email, password,<br/>whatsappNumber, agreeNotification: true}
+    
+    BE->>BE: Validate input & check duplicates
+    BE->>DB: Check existing user<br/>WHERE email = ? OR whatsappNumber = ?
+    DB-->>BE: No duplicate found
+    
+    BE->>BE: Hash password & generate 6-digit code
+    BE->>DB: INSERT INTO users<br/>(firstName, lastName, email, passwordHash,<br/>whatsappNumber, verificationCode, verified: false)
+    DB-->>BE: User created with ID: "user_123"
+    
+    BE->>EM: Send verification email<br/>{to: email, code: "123456", expires: 10min}
+    EM-->>BE: Email sent successfully
+    
+    BE-->>MA: {success: true, message: "Kode dikirim ke email"}
+    MA->>MA: Navigate to verification screen
+
+    Note over MA,GD: 2. EMAIL VERIFICATION
+
+    MA->>MA: User enters 6-digit code from email
+    MA->>BE: POST /api/auth/verify-email<br/>{email, code: "123456"}
+    
+    BE->>DB: SELECT verificationCode, createdAt<br/>FROM users WHERE email = ? AND verified = false
+    DB-->>BE: {code: "123456", createdAt: timestamp}
+    
+    BE->>BE: Validate code & check expiry (10 minutes)
+    
+    alt Code valid & not expired
+        BE->>DB: UPDATE users SET verified = true,<br/>verificationCode = null WHERE email = ?
+        DB-->>BE: User verified successfully
+        
+        BE->>EM: Send welcome email
+        EM-->>BE: Welcome email sent
+        
+        BE-->>MA: {success: true, message: "Email terverifikasi"}
+        MA->>MA: Show success & navigate to login
+        
+    else Code invalid/expired
+        BE-->>MA: {success: false, error: "Kode tidak valid"}
+        MA->>MA: Show error & resend option
+    end
+
+    Note over MA,GD: 3. LOGIN AUTHENTICATION
+
+    MA->>MA: User enters email & password
+    MA->>BE: POST /api/auth/login<br/>{email, password}
+    
+    BE->>DB: SELECT * FROM users<br/>WHERE email = ? AND verified = true
+    DB-->>BE: User data returned
+    
+    alt User exists & verified
+        BE->>BE: Verify password with bcrypt
+        
+        alt Password correct
+            BE->>DB: UPDATE lastLogin = NOW()
+            DB-->>BE: Login time updated
+            
+            BE->>BE: Generate JWT token (7 days expiry)
+            BE-->>MA: {success: true, token, user: {...}}
+            
+            MA->>MA: Store token securely<br/>Navigate to dashboard
+            
+        else Password incorrect
+            BE-->>MA: {success: false, error: "Password salah"}
+        end
+        
+    else User not found/verified
+        BE-->>MA: {success: false, error: "User tidak ditemukan"}
+    end
+
+    Note over MA,GD: 4. DASHBOARD ACCESS
+
+    MA->>BE: GET /api/dashboard<br/>Authorization: Bearer {token}
+    
+    BE->>BE: Validate JWT token & extract userId
+    
+    alt Token valid
+        BE->>DB: Get user profile & statistics
+        DB-->>BE: User data with stats
+        BE-->>MA: {user: {...}, stats: {...}}
+        MA->>MA: Render dashboard with user info
+        
+    else Token invalid/expired
+        BE-->>MA: {error: "Token tidak valid"}
+        MA->>MA: Clear token & redirect to login
+    end
+
+    Note over MA,GD: 5. UPLOAD FOUND ITEM
+
+    MA->>MA: User fills found item form<br/>(name, description, category, location, images)
+    
+    MA->>BE: POST /api/items/found<br/>multipart/form-data with images
+    
+    BE->>BE: Validate token & item data
+    BE->>BE: Validate images (size, type, count)
+    
+    BE->>GD: Upload images to Google Drive
+    GD-->>BE: Image URLs returned
+    
+    BE->>DB: INSERT INTO found_items<br/>(userId, itemName, description, images, etc)
+    DB-->>BE: Item saved with ID: "found_123"
+    
+    BE->>AI: POST /ai/match/instant<br/>{item_id: "found_123", item_name,<br/>description, image_urls, collection: "found_items"}
+    
+    AI->>AI: Load CLIP & Sentence Transformer models
+    AI->>AI: Generate image embeddings
+    AI->>AI: Generate text embeddings (CLIP + Sentence)
+    
+    AI->>FB: Save embeddings to found_items collection
+    FB-->>AI: Embeddings saved successfully
+    
+    AI->>FB: Query lost_items embeddings for matching
+    FB-->>AI: Lost items embeddings retrieved
+    
+    AI->>AI: Calculate hybrid similarity scores<br/>(image + text weighted combination)
+    AI->>AI: Filter matches above 75% threshold
+    
+    AI-->>BE: {matches: [{lost_item_id: "lost_456",<br/>similarity: 0.89, type: "hybrid"}]}
+    
+    alt Matches found
+        BE->>DB: INSERT INTO matches<br/>(foundItemId, lostItemId, similarity)
+        DB-->>BE: Matches saved
+        
+        loop For each match
+            BE->>DB: Get lost item owner info
+            DB-->>BE: Owner contact details
+            
+            BE->>WA: Send match notification<br/>Template: matchFound
+            WA-->>BE: Notification sent
+            
+            BE->>DB: INSERT INTO notifications<br/>(userId, type: "match_found", data)
+            DB-->>BE: In-app notification created
+        end
+    end
+    
+    BE-->>MA: {success: true, itemId: "found_123",<br/>matchesCount: 1}
+    MA->>MA: Show success message
+
+    Note over MA,GD: 6. UPLOAD LOST ITEM
+
+    MA->>MA: User fills lost item form<br/>(name, description, location, reward, optional images)
+    
+    MA->>BE: POST /api/items/lost<br/>multipart/form-data
+    
+    BE->>BE: Validate token & data
+    
+    alt Images provided
+        BE->>GD: Upload images to Google Drive
+        GD-->>BE: Image URLs returned
+    end
+    
+    BE->>DB: INSERT INTO lost_items<br/>(userId, itemName, description, etc)
+    DB-->>BE: Item saved with ID: "lost_789"
+    
+    BE->>AI: POST /ai/match/instant<br/>{item_id: "lost_789", collection: "lost_items"}
+    
+    AI->>AI: Generate embeddings for lost item
+    AI->>FB: Save to lost_items embeddings
+    FB-->>AI: Saved successfully
+    
+    AI->>FB: Query found_items for matches
+    FB-->>AI: Found items embeddings
+    AI->>AI: Calculate similarities
+    
+    AI-->>BE: {matches: [{found_item_id: "found_123",<br/>similarity: 0.92}]}
+    
+    BE->>DB: Save matches & create notifications
+    DB-->>BE: Matches saved
+    
+    BE-->>MA: {success: true, itemId: "lost_789",<br/>matchesCount: 1}
+
+    Note over MA,GD: 7. BACKGROUND MATCHING SERVICE
+
+    BE->>BE: Cron job triggers every 2 hours
+    BE->>AI: POST /ai/match/background<br/>{threshold: 0.75, limit: 100}
+    
+    AI->>FB: Get all active lost_items embeddings
+    FB-->>AI: Lost items data
+    
+    AI->>FB: Get all available found_items embeddings  
+    FB-->>AI: Found items data
+    
+    loop For each lost item
+        loop For each found item
+            AI->>AI: Calculate hybrid similarity
+            alt Similarity > 75%
+                AI->>AI: Add to new matches list
+            end
+        end
+    end
+    
+    AI-->>BE: {new_matches: [{lost_id, found_id, similarity}]}
+    
+    loop For each new match
+        BE->>DB: Check if match already exists
+        DB-->>BE: Match status
+        
+        alt New match
+            BE->>DB: INSERT INTO matches
+            DB-->>BE: Match saved
+            
+            BE->>DB: Get lost item owner contact
+            DB-->>BE: Owner details
+            
+            BE->>WA: Send match notification
+            WA-->>BE: WhatsApp sent
+            
+            BE->>DB: Create in-app notification
+            DB-->>BE: Notification created
+        end
+    end
+
+    Note over MA,GD: 8. VIEW MATCHES & SUBMIT CLAIM
+
+    MA->>BE: GET /api/items/my-lost<br/>Authorization: Bearer {token}
+    BE->>DB: SELECT lost_items WHERE userId = ?
+    DB-->>BE: User's lost items
+    BE-->>MA: {lostItems: [...]}
+    
+    MA->>BE: GET /api/matches/lost-item/{id}
+    BE->>DB: SELECT matches WHERE lostItemId = ?<br/>JOIN found_items
+    DB-->>BE: Matches with found item details
+    BE-->>MA: {matches: [{similarity, foundItem: {...}}]}
+    
+    MA->>MA: User selects high similarity match
+    MA->>BE: GET /api/items/found/{id}/detail
+    BE->>DB: SELECT complete found item data
+    DB-->>BE: Full item details with images
+    BE-->>MA: {foundItem: {name, description, images,<br/>location, finder: {...}}}
+    
+    MA->>MA: User writes claim story
+    MA->>BE: POST /api/claims<br/>{foundItemId, lostItemId, story, evidenceImages}
+    
+    BE->>BE: Validate claim data
+    
+    alt Evidence images provided
+        BE->>GD: Upload evidence images
+        GD-->>BE: Evidence URLs
+    end
+    
+    BE->>DB: INSERT INTO claims<br/>(claimerId, foundItemId, lostItemId, story)
+    DB-->>BE: Claim created with ID: "claim_456"
+    
+    BE->>DB: Get found item owner contact
+    DB-->>BE: Finder contact details
+    
+    BE->>WA: Send claim notification to finder<br/>Template: claimReceived
+    WA-->>BE: Notification sent
+    
+    BE->>DB: Create in-app notification for finder
+    DB-->>BE: Notification created
+    
+    BE-->>MA: {success: true, claimId: "claim_456"}
+    MA->>MA: Show claim submitted confirmation
+
+    Note over MA,GD: 9. REVIEW & APPROVE CLAIM
+
+    MA->>BE: GET /api/items/my-found<br/>Authorization: Bearer {token}
+    BE->>DB: SELECT found_items WHERE userId = ?<br/>LEFT JOIN claims
+    DB-->>BE: Found items with pending claims
+    BE-->>MA: {foundItems: [{pendingClaims: 1}]}
+    
+    MA->>BE: GET /api/claims/received<br/>foundItemId={id}
+    BE->>DB: SELECT claims WHERE foundItemId = ?<br/>JOIN users (claimer info)<br/>JOIN lost_items
+    DB-->>BE: Complete claim details
+    BE-->>MA: {claim: {id, story, claimer: {...},<br/>lostItem: {...}, evidenceImages: [...]}}
+    
+    MA->>MA: Finder reviews claim details
+    MA->>BE: PUT /api/claims/{id}/approve<br/>{decision: "approved"}
+    
+    BE->>BE: Validate claimer ownership
+    BE->>DB: UPDATE claims SET status = 'approved',<br/>approvedAt = NOW()
+    DB-->>BE: Claim approved
+    
+    BE->>DB: UPDATE found_items SET status = 'claimed'
+    DB-->>BE: Item status updated
+    
+    BE->>DB: UPDATE matches SET status = 'claimed'<br/>WHERE foundItemId = ?
+    DB-->>BE: Matches updated
+    
+    BE->>DB: Get claimer contact details
+    DB-->>BE: Claimer phone & email
+    
+    BE->>WA: Send approval notification with<br/>finder contact to claimer
+    WA-->>BE: WhatsApp sent
+    
+    BE->>EM: Send approval email to claimer
+    EM-->>BE: Email sent
+    
+    BE->>DB: Create in-app notifications
+    DB-->>BE: Notifications created
+    
+    BE-->>MA: {success: true, message: "Klaim disetujui"}
+    MA->>MA: Show success & update UI
+
+    Note over MA,GD: 10. NOTIFICATIONS & MESSAGING
+
+    rect rgb(255, 248, 220)
+        Note over WA: Match Found Notification
+        BE->>WA: Template: matchFound<br/>{itemName, similarity: 89%, location}
+        WA->>WA: Format: "🎉 UNY Lost - Match Ditemukan!<br/>Sistem menemukan barang 89% mirip<br/>dengan yang Anda hilangkan..."
+        WA-->>BE: Message delivered
+    end
+    
+    rect rgb(240, 248, 255)
+        Note over WA: Claim Received Notification  
+        BE->>WA: Template: claimReceived<br/>{itemName, claimerName}
+        WA->>WA: Format: "👥 UNY Lost - Klaim Baru!<br/>Seseorang mengklaim barang temuan Anda..."
+        WA-->>BE: Message delivered
+    end
+    
+    rect rgb(240, 255, 240)
+        Note over WA: Claim Approved Notification
+        BE->>WA: Template: claimApproved<br/>{itemName, finderName, finderPhone}
+        WA->>WA: Format: "✅ UNY Lost - Klaim Diterima!<br/>Kontak Pelapor: {finderName}<br/>WA: {finderPhone}"
+        WA-->>BE: Message delivered
+    end
+
+    Note over MA,GD: 11. ERROR HANDLING SCENARIOS
+
+    rect rgb(255, 240, 240)
+        Note over MA,GD: Authentication Errors
+        alt WhatsApp not registered
+            WA-->>BE: {isValid: false}
+            BE-->>MA: {error: "Nomor tidak terdaftar di WhatsApp"}
+            MA->>MA: Disable registration, show error
+        end
+        
+        alt Email already exists
+            DB-->>BE: Duplicate email found
+            BE-->>MA: {error: "Email sudah terdaftar"}
+            MA->>MA: Show error, suggest login
+        end
+        
+        alt Verification code expired
+            BE->>BE: Check timestamp > 10 minutes
+            BE-->>MA: {error: "Kode kadaluarsa"}
+            MA->>MA: Show resend option
+        end
+    end
+
+    rect rgb(240, 248, 255)
+        Note over MA,GD: Service Errors
+        alt AI Service unavailable
+            AI-->>BE: Service error / timeout
+            BE->>BE: Log error, continue without AI
+            BE-->>MA: {success: true, note: "Matching delayed"}
+        end
+        
+        alt Google Drive error
+            GD-->>BE: Upload failed
+            BE->>BE: Retry upload or use fallback storage
+            BE-->>MA: {error: "Upload gagal, coba lagi"}
+        end
+        
+        alt WhatsApp API limit exceeded
+            WA-->>BE: Rate limit error
+            BE->>BE: Queue notification for later
+            BE-->>MA: {success: true, note: "Notifikasi delayed"}
+        end
+    end
+
+    Note over MA,GD: 12. TOKEN REFRESH & SESSION MANAGEMENT
+
+    alt Token expires during session
+        MA->>BE: API call with expired token
+        BE->>BE: Validate token → expired
+        BE-->>MA: {error: "Token expired", code: 401}
+        
+        MA->>BE: POST /api/auth/refresh<br/>{refreshToken}
+        BE->>BE: Validate refresh token
+        
+        alt Refresh token valid
+            BE->>BE: Generate new access token
+            BE-->>MA: {accessToken: "new_token"}
+            MA->>MA: Update stored token
+            MA->>BE: Retry original request with new token
+            
+        else Refresh token invalid
+            BE-->>MA: {error: "Session expired"}
+            MA->>MA: Clear all tokens<br/>Redirect to login
+        end
+    end
+
+    Note over MA,GD: 13. LOGOUT & CLEANUP
+
+    MA->>BE: POST /api/auth/logout<br/>Authorization: Bearer {token}
+    BE->>BE: Validate token & extract userId
+    
+    BE->>DB: UPDATE users SET lastLogout = NOW()<br/>WHERE id = ?
+    DB-->>BE: Logout time recorded
+    
+    BE->>BE: Add token to blacklist<br/>(for security)
+    
+    BE-->>MA: {success: true, message: "Logout berhasil"}
+    MA->>MA: Clear stored tokens<br/>Clear app cache<br/>Navigate to login screen
