@@ -1,15 +1,6 @@
-// src/screens/auth/SplashScreen.js
-// File: src/screens/auth/SplashScreen.js
-
+// File: frontend/src/screens/auth/SplashScreen.js - FIXED VERSION
 import React, { useEffect, useRef } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Dimensions,
-  Animated,
-  StatusBar,
-} from "react-native";
+import { View, Text, StyleSheet, Dimensions, Animated } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
 const { width, height } = Dimensions.get("window");
@@ -31,6 +22,7 @@ export default function SplashScreen() {
 
     // Navigate to login after animations complete
     const timer = setTimeout(() => {
+      // Use replace to prevent going back to splash
       navigation.replace("Login");
     }, 3500);
 
@@ -84,35 +76,17 @@ export default function SplashScreen() {
       }),
     ]).start();
 
-    // Tagline animation with delay
+    // Animate tagline with delay
     setTimeout(() => {
-      Animated.sequence([
-        Animated.timing(taglineAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        // Subtle pulse animation for tagline
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(taglineAnim, {
-              toValue: 0.9,
-              duration: 1000,
-              useNativeDriver: true,
-            }),
-            Animated.timing(taglineAnim, {
-              toValue: 1,
-              duration: 1000,
-              useNativeDriver: true,
-            }),
-          ]),
-          { iterations: 2 }
-        ),
-      ]).start();
-    }, 1200);
+      Animated.timing(taglineAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start();
+    }, 1500);
   };
 
-  const logoRotation = logoRotateAnim.interpolate({
+  const logoRotate = logoRotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ["0deg", "360deg"],
   });
@@ -122,179 +96,125 @@ export default function SplashScreen() {
     outputRange: [0, 1.2, 1],
   });
 
-  const magnifyRotation = magnifyAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "15deg"],
-  });
-
   const backgroundOpacity = backgroundAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0.8, 1],
   });
 
   return (
-    <>
-      <StatusBar barStyle="light-content" backgroundColor="#3478f6" />
-      <Animated.View style={[styles.container, { opacity: backgroundOpacity }]}>
-        {/* Animated Background Overlay */}
-        <Animated.View style={styles.backgroundOverlay} />
+    <Animated.View style={[styles.container, { opacity: backgroundOpacity }]}>
+      {/* Background Gradient Effect */}
+      <View style={styles.backgroundGradient} />
 
-        {/* Main Content */}
-        <View style={styles.content}>
-          {/* Logo Container */}
+      {/* Logo Container */}
+      <View style={styles.logoContainer}>
+        <Animated.View
+          style={[
+            styles.logoWrapper,
+            {
+              opacity: fadeAnim,
+              transform: [
+                { scale: scaleAnim },
+                { translateY: slideAnim },
+                { rotate: logoRotate },
+              ],
+            },
+          ]}
+        >
+          {/* Main Logo Circle */}
+          <View style={styles.logoCircle}>
+            <Text style={styles.logoText}>UNY</Text>
+          </View>
+
+          {/* Magnifying Glass Animation */}
           <Animated.View
             style={[
-              styles.logoContainer,
+              styles.magnifyingGlass,
               {
-                opacity: fadeAnim,
-                transform: [
-                  { scale: scaleAnim },
-                  { translateY: slideAnim },
-                  { rotate: logoRotation },
-                ],
+                transform: [{ scale: magnifyScale }],
               },
             ]}
           >
-            {/* Main Logo Circle */}
-            <View style={styles.logoCircle}>
-              <Text style={styles.logoText}>UNYLost</Text>
-
-              {/* Animated Magnifying Glass */}
-              <Animated.View
-                style={[
-                  styles.magnifyingGlass,
-                  {
-                    transform: [
-                      { scale: magnifyScale },
-                      { rotate: magnifyRotation },
-                    ],
-                  },
-                ]}
-              >
-                <View style={styles.magnifyLens} />
-                <View style={styles.magnifyHandle} />
-              </Animated.View>
-            </View>
+            <View style={styles.magnifyCircle} />
+            <View style={styles.magnifyHandle} />
           </Animated.View>
+        </Animated.View>
 
-          {/* Tagline */}
-          <Animated.View
-            style={[
-              styles.taglineContainer,
-              {
-                opacity: taglineAnim,
-                transform: [{ scale: taglineAnim }],
-              },
-            ]}
-          >
-            <Text style={styles.tagline}>
-              "Find the Lost, Return the Found"
-            </Text>
-          </Animated.View>
-        </View>
+        {/* App Name */}
+        <Animated.Text
+          style={[
+            styles.appName,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          Lost
+        </Animated.Text>
 
-        {/* Floating Particles Animation */}
-        <View style={styles.particlesContainer}>
-          {[...Array(6)].map((_, index) => (
-            <FloatingParticle key={index} delay={index * 200} />
-          ))}
-        </View>
+        {/* Tagline */}
+        <Animated.Text
+          style={[
+            styles.tagline,
+            {
+              opacity: taglineAnim,
+            },
+          ]}
+        >
+          Find the Lost, Return the Found
+        </Animated.Text>
+      </View>
+
+      {/* Bottom Text */}
+      <Animated.View
+        style={[
+          styles.bottomContainer,
+          {
+            opacity: taglineAnim,
+          },
+        ]}
+      >
+        <Text style={styles.versionText}>v1.0.0</Text>
+        <Text style={styles.universityText}>Universitas Negeri Yogyakarta</Text>
       </Animated.View>
-    </>
+    </Animated.View>
   );
 }
-
-// Floating Particle Component
-const FloatingParticle = ({ delay }) => {
-  const particleAnim = useRef(new Animated.Value(0)).current;
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    setTimeout(() => {
-      Animated.loop(
-        Animated.parallel([
-          Animated.sequence([
-            Animated.timing(particleAnim, {
-              toValue: 1,
-              duration: 3000,
-              useNativeDriver: true,
-            }),
-            Animated.timing(particleAnim, {
-              toValue: 0,
-              duration: 0,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.sequence([
-            Animated.timing(opacityAnim, {
-              toValue: 0.6,
-              duration: 1500,
-              useNativeDriver: true,
-            }),
-            Animated.timing(opacityAnim, {
-              toValue: 0,
-              duration: 1500,
-              useNativeDriver: true,
-            }),
-          ]),
-        ]),
-        { iterations: -1 }
-      ).start();
-    }, delay);
-  }, [delay]);
-
-  const translateY = particleAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [height, -100],
-  });
-
-  const translateX = particleAnim.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0, 30, -20],
-  });
-
-  return (
-    <Animated.View
-      style={[
-        styles.particle,
-        {
-          opacity: opacityAnim,
-          transform: [{ translateY }, { translateX }],
-        },
-        {
-          left: Math.random() * width,
-        },
-      ]}
-    />
-  );
-};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#3478f6",
-  },
-  backgroundOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(52, 120, 246, 0.1)",
-  },
-  content: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 40,
+  },
+  backgroundGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#3478f6",
+    opacity: 0.9,
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 40,
+    justifyContent: "center",
+  },
+  logoWrapper: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
   },
   logoCircle: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    justifyContent: "center",
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#fff",
     alignItems: "center",
+    justifyContent: "center",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -303,58 +223,71 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 12,
-    position: "relative",
   },
   logoText: {
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: "bold",
     color: "#3478f6",
     textAlign: "center",
-    letterSpacing: 1,
   },
   magnifyingGlass: {
     position: "absolute",
-    bottom: 20,
-    right: 25,
+    top: -10,
+    right: -10,
   },
-  magnifyLens: {
-    width: 35,
-    height: 35,
-    borderRadius: 17.5,
-    borderWidth: 4,
-    borderColor: "#3478f6",
+  magnifyCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 3,
+    borderColor: "#fff",
     backgroundColor: "transparent",
   },
   magnifyHandle: {
     position: "absolute",
     bottom: -8,
     right: -8,
-    width: 20,
-    height: 4,
-    backgroundColor: "#3478f6",
+    width: 3,
+    height: 12,
+    backgroundColor: "#fff",
     borderRadius: 2,
     transform: [{ rotate: "45deg" }],
   },
-  taglineContainer: {
-    alignItems: "center",
+  appName: {
+    fontSize: 48,
+    fontWeight: "bold",
+    color: "#fff",
+    textAlign: "center",
+    marginBottom: 12,
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   tagline: {
     fontSize: 16,
-    color: "rgba(255, 255, 255, 0.9)",
-    fontStyle: "italic",
+    color: "#fff",
     textAlign: "center",
-    letterSpacing: 0.5,
-    lineHeight: 24,
+    fontStyle: "italic",
+    opacity: 0.9,
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  particlesContainer: {
-    ...StyleSheet.absoluteFillObject,
-    pointerEvents: "none",
-  },
-  particle: {
+  bottomContainer: {
     position: "absolute",
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    bottom: 60,
+    alignItems: "center",
+  },
+  versionText: {
+    fontSize: 12,
+    color: "#fff",
+    opacity: 0.7,
+    marginBottom: 4,
+  },
+  universityText: {
+    fontSize: 12,
+    color: "#fff",
+    opacity: 0.7,
+    textAlign: "center",
   },
 });

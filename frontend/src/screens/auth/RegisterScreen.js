@@ -1,3 +1,4 @@
+// File: frontend/src/screens/auth/RegisterScreen.js - FIXED VERSION
 import React, { useState } from "react";
 import {
   View,
@@ -14,12 +15,13 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../../context/AuthContext";
+import { authAPI } from "../../services/api";
 
 const { width, height } = Dimensions.get("window");
 
 export default function RegisterScreen() {
   const navigation = useNavigation();
-  const { register, isLoading } = useAuth();
+  const { isLoading } = useAuth();
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -32,16 +34,21 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
   const [whatsappVerified, setWhatsappVerified] = useState(false);
+  const [isVerifyingWhatsapp, setIsVerifyingWhatsapp] = useState(false);
 
   const validateForm = () => {
     const newErrors = {};
 
     if (!formData.firstName.trim()) {
       newErrors.firstName = "Nama depan harus diisi";
+    } else if (formData.firstName.length < 2) {
+      newErrors.firstName = "Nama depan minimal 2 karakter";
     }
 
     if (!formData.lastName.trim()) {
       newErrors.lastName = "Nama belakang harus diisi";
+    } else if (formData.lastName.length < 2) {
+      newErrors.lastName = "Nama belakang minimal 2 karakter";
     }
 
     if (!formData.email.trim()) {
@@ -77,26 +84,84 @@ export default function RegisterScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
+  const handleVerifyWhatsapp = async () => {
+    if (!formData.whatsappNumber.trim()) {
+      setErrors({ ...errors, whatsappNumber: "Nomor WhatsApp harus diisi" });
+      return;
+    }
+
+    if (!/^(\+62|62|0)8[1-9][0-9]{6,11}$/.test(formData.whatsappNumber)) {
+      setErrors({
+        ...errors,
+        whatsappNumber: "Format nomor WhatsApp tidak valid",
+      });
+      return;
+    }
+
+    setIsVerifyingWhatsapp(true);
+    try {
+      console.log("🔍 Verifying WhatsApp:", formData.whatsappNumber);
+
+      const response = await authAPI.verifyWhatsapp(formData.whatsappNumber);
+
+      if (response.success) {
+        setWhatsappVerified(true);
+        setErrors({ ...errors, whatsappNumber: null });
+        Alert.alert("Berhasil", "Nomor WhatsApp terverifikasi!");
+      } else {
+        Alert.alert("Gagal", response.message || "Verifikasi WhatsApp gagal");
+      }
+    } catch (error) {
+      console.error("WhatsApp verification error:", error);
+      Alert.alert("Error", "Gagal memverifikasi nomor WhatsApp");
+    } finally {
+      setIsVerifyingWhatsapp(false);
+    }
+  };
+
   const handleRegister = async () => {
     if (!validateForm()) return;
 
-    const userData = {
-      fullName: `${formData.firstName} ${formData.lastName}`,
-      email: formData.email,
-      password: formData.password,
-      whatsappNumber: formData.whatsappNumber,
-      agreeNotification: formData.agreeNotification,
-    };
-
-    const result = await register(userData);
-
-    if (result.success) {
-      navigation.navigate("Verification", {
+    try {
+      console.log("📝 Starting registration with data:", {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
         email: formData.email,
-        fromRegister: true,
+        whatsappNumber: formData.whatsappNumber,
+        agreeNotification: formData.agreeNotification,
       });
-    } else {
-      Alert.alert("Registrasi Gagal", result.message);
+
+      const response = await authAPI.register({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        whatsappNumber: formData.whatsappNumber,
+        agreeNotification: formData.agreeNotification,
+      });
+
+      if (response.success) {
+        Alert.alert(
+          "Registrasi Berhasil!",
+          "Kode verifikasi telah dikirim ke email Anda. Silakan cek inbox atau spam folder.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                navigation.navigate("Verification", {
+                  email: formData.email,
+                  userData: response.data.user,
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert("Registrasi Gagal", response.message);
+      }
+    } catch (error) {
+      console.error("Registration error:", error);
+      Alert.alert("Error", "Terjadi kesalahan saat registrasi");
     }
   };
 
@@ -105,16 +170,20 @@ export default function RegisterScreen() {
     if (errors[field]) {
       setErrors({ ...errors, [field]: null });
     }
+
+    // Reset WhatsApp verification if number changes
+    if (field === "whatsappNumber" && whatsappVerified) {
+      setWhatsappVerified(false);
+    }
   };
 
-  const handleWhatsAppVerification = () => {
-    // Simulasi verifikasi WhatsApp
-    // Dalam implementasi nyata, ini akan memanggil API verifikasi
-    if (formData.whatsappNumber.trim()) {
-      setWhatsappVerified(true);
-      Alert.alert("Sukses", "Nomor WhatsApp berhasil diverifikasi");
-    } else {
-      Alert.alert("Error", "Masukkan nomor WhatsApp terlebih dahulu");
+  const toggleAgreeNotification = () => {
+    setFormData({
+      ...formData,
+      agreeNotification: !formData.agreeNotification,
+    });
+    if (errors.agreeNotification) {
+      setErrors({ ...errors, agreeNotification: null });
     }
   };
 
@@ -130,23 +199,24 @@ export default function RegisterScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
             style={styles.backButton}
+            onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color="#1f2937" />
+            <Ionicons name="arrow-back" size={24} color="#374151" />
           </TouchableOpacity>
         </View>
 
         {/* Form Section */}
         <View style={styles.formSection}>
-          <Text style={styles.title}>Buat Akun Baru</Text>
+          <Text style={styles.title}>Buat Akun</Text>
           <Text style={styles.subtitle}>
-            Selamat datang! Silakan isi detail Anda.
+            Daftar untuk mulai menggunakan UNYLost
           </Text>
 
-          {/* Name Inputs */}
+          {/* Name Fields */}
           <View style={styles.nameContainer}>
-            <View style={[styles.nameInputContainer, { marginRight: 8 }]}>
+            <View style={[styles.nameInputContainer, { marginRight: 10 }]}>
+              <Text style={styles.inputLabel}>Nama Depan</Text>
               <View
                 style={[
                   styles.inputWrapper,
@@ -156,17 +226,14 @@ export default function RegisterScreen() {
                 <Ionicons
                   name="person-outline"
                   size={20}
-                  color="#9ca3af"
+                  color="#9CA3AF"
                   style={styles.inputIcon}
                 />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Nama Depan"
-                  placeholderTextColor="#9ca3af"
+                  placeholder="Nama depan"
                   value={formData.firstName}
-                  onChangeText={(value) =>
-                    handleInputChange("firstName", value)
-                  }
+                  onChangeText={(text) => handleInputChange("firstName", text)}
                   autoCapitalize="words"
                 />
               </View>
@@ -175,7 +242,8 @@ export default function RegisterScreen() {
               )}
             </View>
 
-            <View style={[styles.nameInputContainer, { marginLeft: 8 }]}>
+            <View style={[styles.nameInputContainer, { marginLeft: 10 }]}>
+              <Text style={styles.inputLabel}>Nama Belakang</Text>
               <View
                 style={[
                   styles.inputWrapper,
@@ -185,15 +253,14 @@ export default function RegisterScreen() {
                 <Ionicons
                   name="person-outline"
                   size={20}
-                  color="#9ca3af"
+                  color="#9CA3AF"
                   style={styles.inputIcon}
                 />
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Nama Belakang"
-                  placeholderTextColor="#9ca3af"
+                  placeholder="Nama belakang"
                   value={formData.lastName}
-                  onChangeText={(value) => handleInputChange("lastName", value)}
+                  onChangeText={(text) => handleInputChange("lastName", text)}
                   autoCapitalize="words"
                 />
               </View>
@@ -203,26 +270,25 @@ export default function RegisterScreen() {
             </View>
           </View>
 
-          {/* Email Input */}
+          {/* Email Field */}
           <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Email</Text>
             <View
               style={[styles.inputWrapper, errors.email && styles.inputError]}
             >
               <Ionicons
                 name="mail-outline"
                 size={20}
-                color="#9ca3af"
+                color="#9CA3AF"
                 style={styles.inputIcon}
               />
               <TextInput
                 style={styles.textInput}
-                placeholder="E-mail"
-                placeholderTextColor="#9ca3af"
+                placeholder="email@uny.ac.id"
                 value={formData.email}
-                onChangeText={(value) => handleInputChange("email", value)}
+                onChangeText={(text) => handleInputChange("email", text)}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                autoComplete="email"
               />
             </View>
             {errors.email && (
@@ -230,8 +296,9 @@ export default function RegisterScreen() {
             )}
           </View>
 
-          {/* Password Input */}
+          {/* Password Field */}
           <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Password</Text>
             <View
               style={[
                 styles.inputWrapper,
@@ -241,26 +308,25 @@ export default function RegisterScreen() {
               <Ionicons
                 name="lock-closed-outline"
                 size={20}
-                color="#9ca3af"
+                color="#9CA3AF"
                 style={styles.inputIcon}
               />
               <TextInput
-                style={[styles.textInput, { flex: 1 }]}
-                placeholder="Password"
-                placeholderTextColor="#9ca3af"
+                style={styles.textInput}
+                placeholder="Minimal 6 karakter"
                 value={formData.password}
-                onChangeText={(value) => handleInputChange("password", value)}
+                onChangeText={(text) => handleInputChange("password", text)}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
               />
               <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
               >
                 <Ionicons
                   name={showPassword ? "eye-outline" : "eye-off-outline"}
                   size={20}
-                  color="#9ca3af"
+                  color="#9CA3AF"
                 />
               </TouchableOpacity>
             </View>
@@ -269,8 +335,9 @@ export default function RegisterScreen() {
             )}
           </View>
 
-          {/* WhatsApp Input */}
+          {/* WhatsApp Field */}
           <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Nomor WhatsApp</Text>
             <View
               style={[
                 styles.inputWrapper,
@@ -280,27 +347,32 @@ export default function RegisterScreen() {
               <Ionicons
                 name="logo-whatsapp"
                 size={20}
-                color="#9ca3af"
+                color="#9CA3AF"
                 style={styles.inputIcon}
               />
               <TextInput
-                style={[styles.textInput, { flex: 1 }]}
-                placeholder="Nomor WhatsApp"
-                placeholderTextColor="#9ca3af"
+                style={styles.textInput}
+                placeholder="+6281234567890"
                 value={formData.whatsappNumber}
-                onChangeText={(value) =>
-                  handleInputChange("whatsappNumber", value)
+                onChangeText={(text) =>
+                  handleInputChange("whatsappNumber", text)
                 }
                 keyboardType="phone-pad"
               />
               {whatsappVerified ? (
-                <Ionicons name="checkmark-circle" size={24} color="#10b981" />
+                <Ionicons name="checkmark-circle" size={20} color="#10B981" />
               ) : (
                 <TouchableOpacity
-                  onPress={handleWhatsAppVerification}
-                  style={styles.verifyButton}
+                  style={[
+                    styles.verifyButton,
+                    isVerifyingWhatsapp && styles.verifyButtonDisabled,
+                  ]}
+                  onPress={handleVerifyWhatsapp}
+                  disabled={isVerifyingWhatsapp}
                 >
-                  <Text style={styles.verifyButtonText}>Verifikasi</Text>
+                  <Text style={styles.verifyButtonText}>
+                    {isVerifyingWhatsapp ? "..." : "Verifikasi"}
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -310,27 +382,32 @@ export default function RegisterScreen() {
           </View>
 
           {/* Agreement Checkbox */}
-          <View style={styles.checkboxContainer}>
-            <TouchableOpacity
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            onPress={toggleAgreeNotification}
+            disabled={!whatsappVerified}
+          >
+            <View
               style={[
                 styles.checkbox,
                 formData.agreeNotification && styles.checkboxChecked,
+                !whatsappVerified && styles.checkboxDisabled,
               ]}
-              onPress={() =>
-                handleInputChange(
-                  "agreeNotification",
-                  !formData.agreeNotification
-                )
-              }
             >
               {formData.agreeNotification && (
-                <Ionicons name="checkmark" size={16} color="#fff" />
+                <Ionicons name="checkmark" size={12} color="#fff" />
               )}
-            </TouchableOpacity>
-            <Text style={styles.checkboxText}>
-              Saya setuju menerima notifikasi ke nomor WhatsApp.
+            </View>
+            <Text
+              style={[
+                styles.checkboxText,
+                !whatsappVerified && styles.checkboxTextDisabled,
+              ]}
+            >
+              Saya setuju untuk menerima notifikasi melalui WhatsApp dan email
+              terkait barang hilang yang saya cari atau temukan.
             </Text>
-          </View>
+          </TouchableOpacity>
           {errors.agreeNotification && (
             <Text style={styles.errorText}>{errors.agreeNotification}</Text>
           )}
@@ -339,32 +416,18 @@ export default function RegisterScreen() {
           <TouchableOpacity
             style={[
               styles.registerButton,
-              isLoading && styles.registerButtonDisabled,
+              (isLoading || !whatsappVerified || !formData.agreeNotification) &&
+                styles.registerButtonDisabled,
             ]}
             onPress={handleRegister}
-            disabled={isLoading}
+            disabled={
+              isLoading || !whatsappVerified || !formData.agreeNotification
+            }
           >
             <Text style={styles.registerButtonText}>
-              {isLoading ? "Memuat..." : "Buat Akun"}
+              {isLoading ? "Mendaftarkan..." : "Daftar"}
             </Text>
           </TouchableOpacity>
-
-          {/* Divider */}
-          <View style={styles.dividerContainer}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Atau daftar dengan</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Social Login Buttons */}
-          <View style={styles.socialButtonsContainer}>
-            <TouchableOpacity style={styles.socialButton}>
-              <Text style={styles.socialButtonText}>🇬 Google</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
-              <Text style={styles.socialButtonText}>🔐 SSO</Text>
-            </TouchableOpacity>
-          </View>
 
           {/* Login Link */}
           <View style={styles.loginContainer}>
@@ -432,6 +495,12 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 20,
   },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -461,6 +530,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
+  },
+  verifyButtonDisabled: {
+    backgroundColor: "#9CA3AF",
   },
   verifyButtonText: {
     color: "#fff",
@@ -492,61 +564,33 @@ const styles = StyleSheet.create({
     backgroundColor: "#3478f6",
     borderColor: "#3478f6",
   },
+  checkboxDisabled: {
+    backgroundColor: "#f3f4f6",
+    borderColor: "#e5e7eb",
+  },
   checkboxText: {
     flex: 1,
     fontSize: 14,
     color: "#6b7280",
     lineHeight: 20,
   },
+  checkboxTextDisabled: {
+    color: "#9CA3AF",
+  },
   registerButton: {
     backgroundColor: "#3478f6",
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   registerButtonDisabled: {
-    backgroundColor: "#9ca3af",
+    backgroundColor: "#9CA3AF",
   },
   registerButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
-  },
-  dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#e5e7eb",
-  },
-  dividerText: {
-    color: "#6b7280",
-    fontSize: 14,
-    marginHorizontal: 16,
-  },
-  socialButtonsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 24,
-    gap: 12,
-  },
-  socialButton: {
-    flex: 1,
-    backgroundColor: "#f9fafb",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  socialButtonText: {
-    color: "#1f2937",
-    fontSize: 14,
-    fontWeight: "500",
   },
   loginContainer: {
     flexDirection: "row",
@@ -554,12 +598,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loginText: {
-    color: "#6b7280",
     fontSize: 14,
+    color: "#6b7280",
   },
   loginLink: {
-    color: "#3478f6",
     fontSize: 14,
+    color: "#3478f6",
     fontWeight: "600",
   },
 });

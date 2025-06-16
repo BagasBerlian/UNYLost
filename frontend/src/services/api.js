@@ -1,51 +1,79 @@
-// src/services/api.js
-// File: src/services/api.js
-
-// IMPORTANT: Ganti dengan URL backend Anda
-const BASE_URL = "http://localhost:5000/api/"; // Sesuaikan dengan IP Anda
-// Untuk testing bisa gunakan: 'https://jsonplaceholder.typicode.com'
-// Atau: 'http://localhost:3000/api' jika backend local
+// File: frontend/src/services/api.js - FIXED HEADERS AND BODY PARSING
+import API_CONFIG from "../config/api";
 
 class APIService {
+  constructor() {
+    this.baseURL = API_CONFIG.BASE_URL;
+    console.log(`🌐 API Base URL: ${this.baseURL}`);
+  }
+
   async request(endpoint, options = {}) {
-    const url = `${BASE_URL}${endpoint}`;
+    const url = `${this.baseURL}${endpoint}`;
+
+    // Ensure proper headers for JSON requests
+    const defaultHeaders = {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    };
 
     const config = {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      timeout: 10000, // 10 seconds timeout
       ...options,
+      headers: {
+        ...defaultHeaders,
+        ...options.headers,
+      },
     };
 
     try {
-      console.log(`🔄 API Request: ${config.method} ${url}`);
-      console.log("📤 Request config:", config);
+      console.log(`🌐 API Request: ${config.method || "GET"} ${url}`);
+      console.log(`📤 Request headers:`, config.headers);
+
+      if (config.body) {
+        console.log(`📤 Request body (string):`, config.body);
+        try {
+          const parsedBody = JSON.parse(config.body);
+          console.log(`📤 Request data (parsed):`, parsedBody);
+        } catch (e) {
+          console.log(`📤 Request body (raw):`, config.body);
+        }
+      } else {
+        console.log(`📤 Request data: No body`);
+      }
 
       const response = await fetch(url, config);
 
       console.log(`📥 Response status: ${response.status}`);
-      console.log(`📥 Response headers:`, response.headers);
+      console.log(
+        `📥 Response headers:`,
+        Object.fromEntries(response.headers.entries())
+      );
 
-      const data = await response.json();
-      console.log("📦 Response data:", data);
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        console.log(`📥 Response text:`, text);
+        throw new Error(`Server returned non-JSON response: ${text}`);
+      }
+
+      console.log(`📥 Response data:`, data);
 
       if (!response.ok) {
         throw new Error(
-          data.message || `HTTP ${response.status}: ${response.statusText}`
+          data.message ||
+            `HTTP Error: ${response.status} ${response.statusText}`
         );
       }
 
       return data;
     } catch (error) {
-      console.error("❌ API Request Error:", error);
+      console.error(`❌ API Error for ${url}:`, error);
 
-      // Handle different types of errors
       if (
         error.name === "TypeError" &&
-        error.message === "Network request failed"
+        error.message.includes("Network request failed")
       ) {
         throw new Error(
           "Tidak dapat terhubung ke server. Pastikan backend berjalan dan URL sudah benar."
@@ -122,6 +150,8 @@ export const authAPI = {
   async register(userData) {
     try {
       console.log("📝 Registering user:", userData.email);
+      console.log("📝 Registration data being sent:", userData);
+
       const response = await apiService.post("/auth/register", userData);
       console.log("✅ Registration successful");
       return response;
@@ -137,10 +167,10 @@ export const authAPI = {
   async login(email, password) {
     try {
       console.log("🔐 Logging in user:", email);
-      const response = await apiService.post("/auth/login", {
-        email,
-        password,
-      });
+      const loginData = { email, password };
+      console.log("🔐 Login data being sent:", loginData);
+
+      const response = await apiService.post("/auth/login", loginData);
       console.log("✅ Login successful");
       return response;
     } catch (error) {
@@ -156,10 +186,10 @@ export const authAPI = {
   async verifyEmail(email, code) {
     try {
       console.log("📧 Verifying email:", email);
-      const response = await apiService.post("/auth/verify-email", {
-        email,
-        code,
-      });
+      const verifyData = { email, code };
+      console.log("📧 Email verification data being sent:", verifyData);
+
+      const response = await apiService.post("/auth/verify-email", verifyData);
       console.log("✅ Email verification successful");
       return response;
     } catch (error) {
@@ -173,20 +203,28 @@ export const authAPI = {
     }
   },
 
-  async verifyWhatsApp(whatsappNumber, code) {
+  async verifyWhatsapp(phone) {
     try {
-      console.log("📱 Verifying WhatsApp:", whatsappNumber);
-      const response = await apiService.post("/auth/verify-whatsapp", {
-        whatsappNumber,
-        code,
-      });
+      console.log("📱 Verifying WhatsApp:", phone);
+
+      // Debug: log the exact data being sent
+      const requestData = { phone };
+      console.log("📤 WhatsApp verification request data:", requestData);
+
+      // Use the real endpoint now
+      const response = await apiService.post(
+        "/auth/verify-whatsapp",
+        requestData
+      );
       console.log("✅ WhatsApp verification successful");
       return response;
     } catch (error) {
       console.error("❌ WhatsApp verification failed:", error);
       return {
         success: false,
-        message: error.message || "Verifikasi WhatsApp gagal.",
+        message:
+          error.message ||
+          "Verifikasi WhatsApp gagal. Periksa nomor yang dimasukkan.",
       };
     }
   },
@@ -201,7 +239,36 @@ export const authAPI = {
       console.error("❌ Get profile failed:", error);
       return {
         success: false,
-        message: error.message || "Gagal mengambil profil user.",
+        message: error.message || "Gagal mengambil profil pengguna.",
+      };
+    }
+  },
+
+  async getDashboard(token) {
+    try {
+      console.log("📊 Getting dashboard data");
+      const response = await apiService.get("/dashboard", token);
+      console.log("✅ Dashboard data retrieved successfully");
+      return response;
+    } catch (error) {
+      console.error("❌ Get dashboard failed:", error);
+      return {
+        success: false,
+        message: error.message || "Gagal mengambil data dashboard.",
+      };
+    }
+  },
+
+  async logout(token) {
+    try {
+      console.log("🚪 Logging out user");
+      // For now, just return success since we don't have a logout endpoint yet
+      return { success: true, message: "Logout berhasil" };
+    } catch (error) {
+      console.error("❌ Logout failed:", error);
+      return {
+        success: false,
+        message: error.message || "Logout gagal.",
       };
     }
   },

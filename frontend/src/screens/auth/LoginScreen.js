@@ -1,3 +1,4 @@
+// File: frontend/src/screens/auth/LoginScreen.js - FINAL NO NAVIGATION VERSION
 import React, { useState } from "react";
 import {
   View,
@@ -14,6 +15,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../../context/AuthContext";
+import TestConnection from "../../components/TestConnection";
 
 const { width, height } = Dimensions.get("window");
 
@@ -50,12 +52,21 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     if (!validateForm()) return;
 
-    const result = await login(formData.email, formData.password);
+    try {
+      console.log("🔐 Attempting login for:", formData.email);
 
-    if (result.success) {
-      navigation.replace("Dashboard");
-    } else {
-      Alert.alert("Login Gagal", result.message);
+      const result = await login(formData.email, formData.password);
+
+      if (result.success) {
+        console.log("✅ Login successful - AuthContext will handle navigation");
+        // NO NAVIGATION CALLS HERE - Let AuthContext handle state change
+      } else {
+        console.log("❌ Login failed:", result.message);
+        Alert.alert("Login Gagal", result.message);
+      }
+    } catch (error) {
+      console.error("❌ Login error:", error);
+      Alert.alert("Error", "Terjadi kesalahan saat login");
     }
   };
 
@@ -66,11 +77,20 @@ export default function LoginScreen() {
     }
   };
 
+  const handleForgotPassword = () => {
+    Alert.alert(
+      "Reset Password",
+      "Fitur reset password akan segera tersedia. Untuk sementara, hubungi administrator.",
+      [{ text: "OK" }]
+    );
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      <TestConnection />
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
@@ -78,7 +98,14 @@ export default function LoginScreen() {
         {/* Logo Section */}
         <View style={styles.logoSection}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>UNYLost</Text>
+            <View style={styles.logoCircle}>
+              <Text style={styles.logoText}>UNY</Text>
+              <View style={styles.magnifyingGlass}>
+                <View style={styles.magnifyCircle} />
+                <View style={styles.magnifyHandle} />
+              </View>
+            </View>
+            <Text style={styles.logoMainText}>Lost</Text>
             <Text style={styles.logoSubtext}>
               "Find the Lost, Return the Found"
             </Text>
@@ -94,24 +121,25 @@ export default function LoginScreen() {
 
           {/* Email Input */}
           <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Email</Text>
             <View
               style={[styles.inputWrapper, errors.email && styles.inputError]}
             >
               <Ionicons
                 name="mail-outline"
                 size={20}
-                color="#9ca3af"
+                color="#9CA3AF"
                 style={styles.inputIcon}
               />
               <TextInput
                 style={styles.textInput}
-                placeholder="Alamat Email"
-                placeholderTextColor="#9ca3af"
+                placeholder="email@uny.ac.id"
+                placeholderTextColor="#9CA3AF"
                 value={formData.email}
-                onChangeText={(value) => handleInputChange("email", value)}
+                onChangeText={(text) => handleInputChange("email", text)}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                autoComplete="email"
+                autoCorrect={false}
               />
             </View>
             {errors.email && (
@@ -121,6 +149,7 @@ export default function LoginScreen() {
 
           {/* Password Input */}
           <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Password</Text>
             <View
               style={[
                 styles.inputWrapper,
@@ -130,26 +159,27 @@ export default function LoginScreen() {
               <Ionicons
                 name="lock-closed-outline"
                 size={20}
-                color="#9ca3af"
+                color="#9CA3AF"
                 style={styles.inputIcon}
               />
               <TextInput
-                style={[styles.textInput, { flex: 1 }]}
-                placeholder="Password"
-                placeholderTextColor="#9ca3af"
+                style={styles.textInput}
+                placeholder="Masukkan password"
+                placeholderTextColor="#9CA3AF"
                 value={formData.password}
-                onChangeText={(value) => handleInputChange("password", value)}
+                onChangeText={(text) => handleInputChange("password", text)}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
+                autoCorrect={false}
               />
               <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
                 style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
               >
                 <Ionicons
                   name={showPassword ? "eye-outline" : "eye-off-outline"}
                   size={20}
-                  color="#9ca3af"
+                  color="#9CA3AF"
                 />
               </TouchableOpacity>
             </View>
@@ -159,8 +189,11 @@ export default function LoginScreen() {
           </View>
 
           {/* Forgot Password */}
-          <TouchableOpacity style={styles.forgotPasswordContainer}>
-            <Text style={styles.forgotPasswordText}>Lupa Password?</Text>
+          <TouchableOpacity
+            style={styles.forgotPassword}
+            onPress={handleForgotPassword}
+          >
+            <Text style={styles.forgotPasswordText}>Lupa password?</Text>
           </TouchableOpacity>
 
           {/* Login Button */}
@@ -172,35 +205,38 @@ export default function LoginScreen() {
             onPress={handleLogin}
             disabled={isLoading}
           >
-            <Text style={styles.loginButtonText}>
-              {isLoading ? "Memuat..." : "Masuk"}
-            </Text>
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <Ionicons name="reload-outline" size={20} color="#fff" />
+                <Text style={styles.loginButtonText}>Masuk...</Text>
+              </View>
+            ) : (
+              <Text style={styles.loginButtonText}>Masuk</Text>
+            )}
           </TouchableOpacity>
 
           {/* Divider */}
-          <View style={styles.dividerContainer}>
+          <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Atau masuk dengan</Text>
+            <Text style={styles.dividerText}>atau</Text>
             <View style={styles.dividerLine} />
-          </View>
-
-          {/* Social Login Buttons */}
-          <View style={styles.socialButtonsContainer}>
-            <TouchableOpacity style={styles.socialButton}>
-              <Text style={styles.socialButtonText}>🇬 Google</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton}>
-              <Text style={styles.socialButtonText}>🔐 SSO</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Register Link */}
           <View style={styles.registerContainer}>
             <Text style={styles.registerText}>Belum punya akun? </Text>
             <TouchableOpacity onPress={() => navigation.navigate("Register")}>
-              <Text style={styles.registerLink}>Daftar di sini</Text>
+              <Text style={styles.registerLink}>Daftar sekarang</Text>
             </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            © 2024 Universitas Negeri Yogyakarta
+          </Text>
+          <Text style={styles.versionText}>v1.0.0</Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -214,8 +250,8 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: "center",
     paddingHorizontal: 24,
+    paddingTop: 80, // Extra space for TestConnection component
   },
   logoSection: {
     alignItems: "center",
@@ -224,15 +260,61 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: "center",
   },
+  logoCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#3478f6",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    position: "relative",
+    shadowColor: "#3478f6",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
   logoText: {
-    fontSize: 36,
+    fontSize: 24,
     fontWeight: "bold",
-    color: "#3478f6",
-    marginBottom: 8,
+    color: "#fff",
+  },
+  magnifyingGlass: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+  },
+  magnifyCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#fff",
+    backgroundColor: "transparent",
+  },
+  magnifyHandle: {
+    position: "absolute",
+    bottom: -6,
+    right: -6,
+    width: 2,
+    height: 8,
+    backgroundColor: "#fff",
+    borderRadius: 1,
+    transform: [{ rotate: "45deg" }],
+  },
+  logoMainText: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#1f2937",
+    marginBottom: 4,
   },
   logoSubtext: {
     fontSize: 14,
-    color: "#3478f6",
+    color: "#6b7280",
     fontStyle: "italic",
   },
   formSection: {
@@ -247,6 +329,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
+    marginBottom: 20,
   },
   welcomeTitle: {
     fontSize: 28,
@@ -264,6 +347,12 @@ const styles = StyleSheet.create({
   inputContainer: {
     marginBottom: 20,
   },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -276,6 +365,7 @@ const styles = StyleSheet.create({
   },
   inputError: {
     borderColor: "#ef4444",
+    backgroundColor: "#fef2f2",
   },
   inputIcon: {
     marginRight: 12,
@@ -294,13 +384,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginLeft: 4,
   },
-  forgotPasswordContainer: {
-    alignItems: "flex-end",
+  forgotPassword: {
+    alignSelf: "flex-end",
     marginBottom: 24,
   },
   forgotPasswordText: {
-    color: "#3478f6",
     fontSize: 14,
+    color: "#3478f6",
     fontWeight: "500",
   },
   loginButton: {
@@ -308,20 +398,34 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 20,
+    shadowColor: "#3478f6",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   loginButtonDisabled: {
     backgroundColor: "#9ca3af",
+    shadowOpacity: 0,
+    elevation: 0,
   },
   loginButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
   },
-  dividerContainer: {
+  loadingContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 24,
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
   },
   dividerLine: {
     flex: 1,
@@ -329,29 +433,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#e5e7eb",
   },
   dividerText: {
-    color: "#6b7280",
-    fontSize: 14,
     marginHorizontal: 16,
-  },
-  socialButtonsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 24,
-    gap: 12,
-  },
-  socialButton: {
-    flex: 1,
-    backgroundColor: "#f9fafb",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    paddingVertical: 12,
-    alignItems: "center",
-  },
-  socialButtonText: {
-    color: "#1f2937",
     fontSize: 14,
-    fontWeight: "500",
+    color: "#6b7280",
   },
   registerContainer: {
     flexDirection: "row",
@@ -359,12 +443,52 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   registerText: {
-    color: "#6b7280",
     fontSize: 14,
+    color: "#6b7280",
   },
   registerLink: {
-    color: "#3478f6",
     fontSize: 14,
+    color: "#3478f6",
     fontWeight: "600",
+  },
+  devSection: {
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: "#f0f9ff",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+  },
+  devTitle: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#1e40af",
+    marginBottom: 8,
+  },
+  devButton: {
+    backgroundColor: "#3b82f6",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    alignItems: "center",
+  },
+  devButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  footer: {
+    alignItems: "center",
+    paddingVertical: 20,
+  },
+  footerText: {
+    fontSize: 12,
+    color: "#9ca3af",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  versionText: {
+    fontSize: 10,
+    color: "#d1d5db",
   },
 });

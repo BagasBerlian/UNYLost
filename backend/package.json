@@ -7,17 +7,15 @@
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
     "test": "jest",
-    "migrate": "npx sequelize-cli db:migrate",
-    "seed": "npx sequelize-cli db:seed:all",
-    "lint": "eslint src/",
-    "setup": "npm run migrate && npm run seed"
+    "migrate": "node scripts/migrate.js",
+    "seed": "node scripts/seed.js"
   },
   "keywords": [
     "lost-and-found",
     "uny",
-    "nodejs",
     "express",
-    "ai-matching"
+    "nodejs",
+    "mysql"
   ],
   "author": "UNY Lost Team",
   "license": "MIT",

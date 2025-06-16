@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+// File: frontend/src/screens/auth/VerificationScreen.js
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,130 +14,155 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
-import { useAuth } from "../../context/AuthContext";
+import { authAPI } from "../../services/api";
 
 const { width, height } = Dimensions.get("window");
 
 export default function VerificationScreen() {
   const navigation = useNavigation();
   const route = useRoute();
-  const { verifyEmail, isLoading } = useAuth();
-
-  const { email, fromRegister } = route.params || {};
+  const { email, userData } = route.params || {};
 
   const [code, setCode] = useState(["", "", "", "", "", ""]);
-  const [countdown, setCountdown] = useState(60);
-  const [canResend, setCanResend] = useState(false);
-  const [errors, setErrors] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [error, setError] = useState("");
 
   const inputRefs = useRef([]);
 
   useEffect(() => {
-    startCountdown();
-  }, []);
+    if (!email) {
+      Alert.alert("Error", "Email tidak ditemukan", [
+        { text: "OK", onPress: () => navigation.navigate("Register") },
+      ]);
+    }
+  }, [email]);
 
-  const startCountdown = () => {
-    setCanResend(false);
-    setCountdown(60);
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown]);
 
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          setCanResend(true);
-          return 0;
+  const handleCodeChange = (text, index) => {
+    if (text.length > 1) {
+      // If pasted multiple characters, distribute them
+      const chars = text.split("").slice(0, 6);
+      const newCode = [...code];
+      chars.forEach((char, i) => {
+        if (index + i < 6) {
+          newCode[index + i] = char;
         }
-        return prev - 1;
       });
-    }, 1000);
-  };
+      setCode(newCode);
 
-  const handleCodeChange = (value, index) => {
-    // Only allow numbers
-    if (!/^[0-9]*$/.test(value)) return;
+      // Focus on the next empty input or the last one
+      const nextIndex = Math.min(index + chars.length, 5);
+      inputRefs.current[nextIndex]?.focus();
+    } else {
+      // Single character input
+      const newCode = [...code];
+      newCode[index] = text;
+      setCode(newCode);
 
-    const newCode = [...code];
-    newCode[index] = value;
-    setCode(newCode);
-    setErrors("");
-
-    // Auto move to next input
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
+      // Auto-focus next input
+      if (text && index < 5) {
+        inputRefs.current[index + 1]?.focus();
+      }
     }
 
-    // Auto verify when all 6 digits are entered
-    if (
-      newCode.every((digit) => digit !== "") &&
-      newCode.join("").length === 6
-    ) {
-      handleVerification(newCode.join(""));
+    // Clear error when user starts typing
+    if (error) {
+      setError("");
     }
   };
 
   const handleKeyPress = (e, index) => {
-    // Move to previous input on backspace
     if (e.nativeEvent.key === "Backspace" && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
-  const handleVerification = async (verificationCode = null) => {
-    const finalCode = verificationCode || code.join("");
+  const handleVerify = async () => {
+    const verificationCode = code.join("");
 
-    if (finalCode.length !== 6) {
-      setErrors("Masukkan kode verifikasi 6 digit");
+    if (verificationCode.length !== 6) {
+      setError("Kode verifikasi harus 6 digit");
       return;
     }
 
-    const result = await verifyEmail(email, finalCode);
+    setIsLoading(true);
+    setError("");
 
-    if (result.success) {
-      Alert.alert(
-        "Verifikasi Berhasil",
-        "Email Anda telah berhasil diverifikasi!",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              if (fromRegister) {
+    try {
+      console.log("📧 Verifying email with code:", verificationCode);
+
+      const response = await authAPI.verifyEmail(email, verificationCode);
+
+      if (response.success) {
+        Alert.alert(
+          "Verifikasi Berhasil!",
+          "Email Anda telah terverifikasi. Silakan login untuk melanjutkan.",
+          [
+            {
+              text: "Login Sekarang",
+              onPress: () => {
+                // Use navigate instead of reset since we're in Auth stack
                 navigation.navigate("Login");
-              } else {
-                navigation.goBack();
-              }
+              },
             },
-          },
-        ]
-      );
-    } else {
-      setErrors(result.message || "Kode verifikasi tidak valid");
-      // Clear code on error
-      setCode(["", "", "", "", "", ""]);
-      inputRefs.current[0]?.focus();
+          ]
+        );
+      } else {
+        setError(response.message || "Kode verifikasi tidak valid");
+      }
+    } catch (error) {
+      console.error("Verification error:", error);
+      setError("Terjadi kesalahan saat verifikasi");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleResendCode = () => {
-    if (!canResend) return;
+  const handleResendCode = async () => {
+    if (countdown > 0) return;
 
-    // Simulate resend API call
-    startCountdown();
-    setCode(["", "", "", "", "", ""]);
-    setErrors("");
-    inputRefs.current[0]?.focus();
+    setIsResending(true);
+    setError("");
 
-    Alert.alert(
-      "Kode Dikirim",
-      "Kode verifikasi baru telah dikirim ke email Anda"
-    );
+    try {
+      console.log("📧 Resending verification code to:", email);
+
+      // For now, we'll simulate resending
+      // In production, you might have a separate resend endpoint
+      setTimeout(() => {
+        setIsResending(false);
+        setCountdown(60); // 60 seconds cooldown
+        Alert.alert(
+          "Berhasil",
+          "Kode verifikasi baru telah dikirim ke email Anda"
+        );
+      }, 2000);
+    } catch (error) {
+      console.error("Resend error:", error);
+      setError("Gagal mengirim ulang kode");
+      setIsResending(false);
+    }
   };
 
-  const formatEmail = (email) => {
-    if (!email) return "";
-    const [username, domain] = email.split("@");
-    const maskedUsername =
-      username.length > 3 ? `${username.substring(0, 3)}***` : `${username}***`;
-    return `${maskedUsername}@${domain}`;
+  const clearCode = () => {
+    setCode(["", "", "", "", "", ""]);
+    setError("");
+    inputRefs.current[0]?.focus();
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -151,27 +177,26 @@ export default function VerificationScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
             style={styles.backButton}
+            onPress={() => navigation.goBack()}
           >
-            <Ionicons name="arrow-back" size={24} color="#1f2937" />
+            <Ionicons name="arrow-back" size={24} color="#374151" />
           </TouchableOpacity>
+        </View>
+
+        {/* Icon */}
+        <View style={styles.iconContainer}>
+          <View style={styles.iconWrapper}>
+            <Ionicons name="mail-outline" size={48} color="#3478f6" />
+          </View>
         </View>
 
         {/* Content */}
         <View style={styles.content}>
-          {/* Email Icon */}
-          <View style={styles.iconContainer}>
-            <View style={styles.iconCircle}>
-              <Ionicons name="mail" size={40} color="#3478f6" />
-            </View>
-          </View>
-
-          {/* Title and Description */}
-          <Text style={styles.title}>Verifikasi Akun Anda</Text>
-          <Text style={styles.description}>
-            Masukkan 6 digit kode yang kami kirimkan ke{"\n"}
-            <Text style={styles.emailText}>{formatEmail(email)}</Text>
+          <Text style={styles.title}>Verifikasi Email</Text>
+          <Text style={styles.subtitle}>
+            Kode verifikasi telah dikirim ke{"\n"}
+            <Text style={styles.emailText}>{email}</Text>
           </Text>
 
           {/* Code Input */}
@@ -182,22 +207,27 @@ export default function VerificationScreen() {
                 ref={(ref) => (inputRefs.current[index] = ref)}
                 style={[
                   styles.codeInput,
-                  digit ? styles.codeInputFilled : null,
-                  errors ? styles.codeInputError : null,
+                  digit && styles.codeInputFilled,
+                  error && styles.codeInputError,
                 ]}
                 value={digit}
-                onChangeText={(value) => handleCodeChange(value, index)}
+                onChangeText={(text) => handleCodeChange(text, index)}
                 onKeyPress={(e) => handleKeyPress(e, index)}
                 keyboardType="numeric"
                 maxLength={1}
-                textAlign="center"
                 selectTextOnFocus
+                textAlign="center"
               />
             ))}
           </View>
 
           {/* Error Message */}
-          {errors ? <Text style={styles.errorText}>{errors}</Text> : null}
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={16} color="#ef4444" />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
           {/* Verify Button */}
           <TouchableOpacity
@@ -206,7 +236,7 @@ export default function VerificationScreen() {
               (isLoading || code.join("").length !== 6) &&
                 styles.verifyButtonDisabled,
             ]}
-            onPress={() => handleVerification()}
+            onPress={handleVerify}
             disabled={isLoading || code.join("").length !== 6}
           >
             <Text style={styles.verifyButtonText}>
@@ -214,19 +244,59 @@ export default function VerificationScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* Resend Section */}
-          <View style={styles.resendContainer}>
-            <Text style={styles.resendText}>Tidak menerima kode? </Text>
-            <TouchableOpacity onPress={handleResendCode} disabled={!canResend}>
+          {/* Helper Text */}
+          <Text style={styles.helperText}>
+            Masukkan 6 digit kode yang dikirim ke email Anda
+          </Text>
+
+          {/* Actions */}
+          <View style={styles.actionsContainer}>
+            {/* Clear Code */}
+            <TouchableOpacity style={styles.actionButton} onPress={clearCode}>
+              <Ionicons name="refresh-outline" size={16} color="#6b7280" />
+              <Text style={styles.actionText}>Hapus Kode</Text>
+            </TouchableOpacity>
+
+            {/* Resend Code */}
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                (countdown > 0 || isResending) && styles.actionButtonDisabled,
+              ]}
+              onPress={handleResendCode}
+              disabled={countdown > 0 || isResending}
+            >
+              <Ionicons
+                name="send-outline"
+                size={16}
+                color={countdown > 0 ? "#9ca3af" : "#6b7280"}
+              />
               <Text
                 style={[
-                  styles.resendLink,
-                  !canResend && styles.resendLinkDisabled,
+                  styles.actionText,
+                  (countdown > 0 || isResending) && styles.actionTextDisabled,
                 ]}
               >
-                {canResend ? "Kirim Ulang" : `Kirim Ulang (${countdown}s)`}
+                {isResending
+                  ? "Mengirim..."
+                  : countdown > 0
+                  ? `Kirim ulang (${formatTime(countdown)})`
+                  : "Kirim Ulang Kode"}
               </Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Additional Info */}
+          <View style={styles.infoContainer}>
+            <Ionicons
+              name="information-circle-outline"
+              size={16}
+              color="#6b7280"
+            />
+            <Text style={styles.infoText}>
+              Tidak menerima kode? Periksa folder spam atau{"\n"}
+              pastikan email yang dimasukkan benar
+            </Text>
           </View>
         </View>
       </ScrollView>
@@ -252,78 +322,91 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 8,
   },
-  content: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   iconContainer: {
+    alignItems: "center",
     marginBottom: 32,
   },
-  iconCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#e0f2fe",
-    justifyContent: "center",
+  iconWrapper: {
+    width: 80,
+    height: 80,
+    backgroundColor: "#eff6ff",
+    borderRadius: 40,
     alignItems: "center",
+    justifyContent: "center",
+  },
+  content: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   title: {
     fontSize: 28,
     fontWeight: "bold",
     color: "#1f2937",
     textAlign: "center",
-    marginBottom: 16,
+    marginBottom: 8,
   },
-  description: {
+  subtitle: {
     fontSize: 16,
     color: "#6b7280",
     textAlign: "center",
-    marginBottom: 40,
-    lineHeight: 24,
+    marginBottom: 32,
+    lineHeight: 22,
   },
   emailText: {
-    color: "#1f2937",
     fontWeight: "600",
+    color: "#3478f6",
   },
   codeContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 24,
-    paddingHorizontal: 20,
+    marginBottom: 16,
   },
   codeInput: {
-    width: 45,
-    height: 55,
-    borderRadius: 12,
+    width: 48,
+    height: 56,
     borderWidth: 2,
     borderColor: "#e5e7eb",
-    backgroundColor: "#fff",
+    borderRadius: 12,
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "600",
     color: "#1f2937",
-    marginHorizontal: 4,
+    backgroundColor: "#f9fafb",
   },
   codeInputFilled: {
     borderColor: "#3478f6",
-    backgroundColor: "#f0f8ff",
+    backgroundColor: "#eff6ff",
   },
   codeInputError: {
     borderColor: "#ef4444",
+    backgroundColor: "#fef2f2",
+  },
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    paddingHorizontal: 4,
   },
   errorText: {
     color: "#ef4444",
     fontSize: 14,
-    textAlign: "center",
-    marginBottom: 16,
+    marginLeft: 6,
+    flex: 1,
   },
   verifyButton: {
     backgroundColor: "#3478f6",
     borderRadius: 12,
     paddingVertical: 16,
-    paddingHorizontal: 80,
     alignItems: "center",
-    marginBottom: 32,
+    marginBottom: 16,
   },
   verifyButtonDisabled: {
     backgroundColor: "#9ca3af",
@@ -333,21 +416,50 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  resendContainer: {
+  helperText: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  actionsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 24,
+  },
+  actionButton: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "#f9fafb",
   },
-  resendText: {
+  actionButtonDisabled: {
+    opacity: 0.5,
+  },
+  actionText: {
+    fontSize: 14,
     color: "#6b7280",
-    fontSize: 14,
+    marginLeft: 6,
   },
-  resendLink: {
-    color: "#3478f6",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  resendLinkDisabled: {
+  actionTextDisabled: {
     color: "#9ca3af",
+  },
+  infoContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#f0f9ff",
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: "#3478f6",
+  },
+  infoText: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 16,
   },
 });
