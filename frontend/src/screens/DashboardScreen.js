@@ -1,4 +1,4 @@
-// File: frontend/src/screens/DashboardScreen.js
+// File: frontend/src/screens/DashboardScreen.js - UPDATED WITH BOTTOM NAVIGATION
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -15,6 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { authAPI } from "../services/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import BottomNavigation from "../components/BottomNavigation";
 
 const { width, height } = Dimensions.get("window");
 
@@ -25,6 +26,12 @@ export default function DashboardScreen() {
   const [dashboardData, setDashboardData] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [stats, setStats] = useState({
+    found: 3,
+    lost: 1,
+    matches: 2,
+    pending: 1,
+  });
 
   useEffect(() => {
     loadDashboardData();
@@ -45,16 +52,17 @@ export default function DashboardScreen() {
       if (response.success) {
         console.log("✅ Dashboard data loaded successfully");
         setDashboardData(response.data);
+        if (response.data.stats) {
+          setStats(response.data.stats);
+        }
       } else {
         console.error("❌ Failed to load dashboard data:", response.message);
-        // Don't force logout on dashboard load error, just show message
         console.log(
           "⚠️ Dashboard data unavailable, continuing with user data only"
         );
       }
     } catch (error) {
       console.error("❌ Dashboard load error:", error);
-      // Don't force logout on network error
       console.log("⚠️ Network error, continuing with cached user data");
     } finally {
       setIsLoadingData(false);
@@ -69,431 +77,287 @@ export default function DashboardScreen() {
 
   const handleLogout = async () => {
     Alert.alert("Konfirmasi Logout", "Apakah Anda yakin ingin keluar?", [
-      {
-        text: "Batal",
-        style: "cancel",
-      },
+      { text: "Batal", style: "cancel" },
       {
         text: "Logout",
         style: "destructive",
         onPress: async () => {
-          console.log("🚪 Starting logout process...");
-          const result = await logout();
-          if (result.success) {
-            console.log(
-              "✅ Logout successful, auth state will change automatically"
-            );
-            // Don't navigate manually - let App.js handle auth state change
-          } else {
-            console.error("❌ Logout failed:", result.message);
-            Alert.alert("Error", "Logout gagal, coba lagi");
+          try {
+            await logout();
+            console.log("✅ Logout successful");
+          } catch (error) {
+            console.error("❌ Logout error:", error);
           }
         },
       },
     ]);
   };
 
-  const renderStatCard = (title, value, icon, color, onPress = null) => (
+  // Action cards for main actions
+  const actionCards = [
+    {
+      title: "Saya Menemukan Barang",
+      subtitle: "Laporkan barang yang kamu temukan",
+      icon: "checkmark-circle",
+      color: "#10b981",
+      bgColor: "#dcfce7",
+      action: () => navigation.navigate("ReportFound"),
+    },
+    {
+      title: "Saya Kehilangan Barang",
+      subtitle: "Laporkan barang yang kamu hilangkan",
+      icon: "close-circle",
+      color: "#ef4444",
+      bgColor: "#fee2e2",
+      action: () => navigation.navigate("ReportLost"),
+    },
+  ];
+
+  // Stats cards
+  const statsCards = [
+    {
+      icon: "checkmark-circle",
+      title: "Barang Temuan",
+      value: stats.found,
+      color: "#10b981",
+      bgColor: "#dcfce7",
+    },
+    {
+      icon: "close-circle",
+      title: "Barang Hilang",
+      value: stats.lost,
+      color: "#ef4444",
+      bgColor: "#fee2e2",
+    },
+    {
+      icon: "flash",
+      title: "Match Ditemukan",
+      value: stats.matches,
+      color: "#3b82f6",
+      bgColor: "#dbeafe",
+    },
+    {
+      icon: "time",
+      title: "Menunggu Review",
+      value: stats.pending,
+      color: "#f59e0b",
+      bgColor: "#fef3c7",
+    },
+  ];
+
+  const ActionCard = ({ item }) => (
     <TouchableOpacity
-      style={[styles.statCard, { borderLeftColor: color }]}
-      onPress={onPress}
-      disabled={!onPress}
+      style={[styles.actionCard, { backgroundColor: item.bgColor }]}
+      onPress={item.action}
+      activeOpacity={0.7}
     >
-      <View style={styles.statContent}>
-        <View style={styles.statLeft}>
-          <Text style={styles.statTitle}>{title}</Text>
-          <Text style={styles.statValue}>{value}</Text>
+      <View style={styles.actionCardContent}>
+        <View
+          style={[styles.actionIconContainer, { backgroundColor: "white" }]}
+        >
+          <Ionicons name={item.icon} size={24} color={item.color} />
         </View>
-        <View style={[styles.statIcon, { backgroundColor: color + "20" }]}>
-          <Ionicons name={icon} size={24} color={color} />
+        <View style={styles.actionTextContainer}>
+          <Text style={styles.actionTitle}>{item.title}</Text>
+          <Text style={styles.actionSubtitle}>{item.subtitle}</Text>
         </View>
+        <Ionicons name="chevron-forward" size={20} color="#6b7280" />
       </View>
     </TouchableOpacity>
   );
 
-  if (isLoadingData) {
+  const StatCard = ({ item }) => (
+    <View style={[styles.statCard, { backgroundColor: item.bgColor }]}>
+      <View style={[styles.statIconContainer, { backgroundColor: "white" }]}>
+        <Ionicons name={item.icon} size={20} color={item.color} />
+      </View>
+      <Text style={styles.statValue}>{item.value}</Text>
+      <Text style={styles.statTitle}>{item.title}</Text>
+    </View>
+  );
+
+  if (isLoading || isLoadingData) {
     return (
       <View style={styles.loadingContainer}>
-        <Ionicons name="reload-outline" size={32} color="#3478f6" />
-        <Text style={styles.loadingText}>Memuat dashboard...</Text>
+        <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={handleRefresh}
-          colors={["#3478f6"]}
-          tintColor="#3478f6"
-        />
-      }
-    >
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.greeting}>Selamat datang,</Text>
-          <Text style={styles.username}>
-            {user?.firstName} {user?.lastName}
-          </Text>
-          <Text style={styles.userEmail}>{user?.email}</Text>
-        </View>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color="#ef4444" />
-        </TouchableOpacity>
-      </View>
-
-      {/* User Status */}
-      <View style={styles.statusContainer}>
-        <View style={styles.statusItem}>
-          <Ionicons
-            name={user?.verified ? "checkmark-circle" : "alert-circle"}
-            size={16}
-            color={user?.verified ? "#10b981" : "#f59e0b"}
-          />
-          <Text
-            style={[
-              styles.statusText,
-              { color: user?.verified ? "#10b981" : "#f59e0b" },
-            ]}
-          >
-            Email {user?.verified ? "Terverifikasi" : "Belum Terverifikasi"}
-          </Text>
-        </View>
-        <View style={styles.statusItem}>
-          <Ionicons
-            name={
-              user?.isWhatsappVerified ? "checkmark-circle" : "alert-circle"
-            }
-            size={16}
-            color={user?.isWhatsappVerified ? "#10b981" : "#f59e0b"}
-          />
-          <Text
-            style={[
-              styles.statusText,
-              { color: user?.isWhatsappVerified ? "#10b981" : "#f59e0b" },
-            ]}
-          >
-            WhatsApp{" "}
-            {user?.isWhatsappVerified ? "Terverifikasi" : "Belum Terverifikasi"}
-          </Text>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.appTitle}>UNY LOST APP</Text>
+            <Text style={styles.greeting}>
+              Halo, {user?.firstName || "User"} {user?.lastName || ""}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+            <Ionicons name="log-out-outline" size={24} color="white" />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Statistics */}
-      <View style={styles.statsSection}>
-        <Text style={styles.sectionTitle}>Statistik</Text>
+      {/* Content */}
+      <ScrollView
+        style={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Question Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Apa yang ingin kamu lakukan?</Text>
 
-        <View style={styles.statsGrid}>
-          {renderStatCard(
-            "Barang Hilang",
-            dashboardData?.stats?.lostItems?.total || 0,
-            "search-outline",
-            "#ef4444"
-          )}
-          {renderStatCard(
-            "Barang Ditemukan",
-            dashboardData?.stats?.foundItems?.total || 0,
-            "checkmark-circle-outline",
-            "#10b981"
-          )}
+          <View style={styles.actionCardsContainer}>
+            {actionCards.map((item, index) => (
+              <ActionCard key={index} item={item} />
+            ))}
+          </View>
         </View>
 
-        <View style={styles.statsGrid}>
-          {renderStatCard(
-            "Kecocokan",
-            dashboardData?.stats?.matches?.total || 0,
-            "link-outline",
-            "#3478f6"
-          )}
-          {renderStatCard(
-            "Klaim",
-            dashboardData?.stats?.claims?.total || 0,
-            "document-text-outline",
-            "#f59e0b"
-          )}
-        </View>
-      </View>
+        {/* Statistics Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>STATISTIK SAYA</Text>
 
-      {/* Quick Actions */}
-      <View style={styles.actionsSection}>
-        <Text style={styles.sectionTitle}>Aksi Cepat</Text>
-
-        <TouchableOpacity style={styles.actionButton}>
-          <View style={styles.actionIcon}>
-            <Ionicons name="add-circle-outline" size={24} color="#3478f6" />
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>Laporkan Barang Hilang</Text>
-            <Text style={styles.actionSubtitle}>
-              Buat laporan untuk barang yang hilang
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton}>
-          <View style={styles.actionIcon}>
-            <Ionicons name="camera-outline" size={24} color="#10b981" />
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>Laporkan Barang Ditemukan</Text>
-            <Text style={styles.actionSubtitle}>
-              Upload foto barang yang Anda temukan
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.actionButton}>
-          <View style={styles.actionIcon}>
-            <Ionicons name="eye-outline" size={24} color="#f59e0b" />
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>Lihat Kecocokan</Text>
-            <Text style={styles.actionSubtitle}>
-              Cek barang yang mungkin cocok dengan milik Anda
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Account Info */}
-      <View style={styles.accountSection}>
-        <Text style={styles.sectionTitle}>Informasi Akun</Text>
-
-        <View style={styles.accountCard}>
-          <View style={styles.accountRow}>
-            <Text style={styles.accountLabel}>User ID:</Text>
-            <Text style={styles.accountValue}>{user?.id}</Text>
-          </View>
-          <View style={styles.accountRow}>
-            <Text style={styles.accountLabel}>WhatsApp:</Text>
-            <Text style={styles.accountValue}>{user?.whatsappNumber}</Text>
-          </View>
-          <View style={styles.accountRow}>
-            <Text style={styles.accountLabel}>Terakhir Login:</Text>
-            <Text style={styles.accountValue}>
-              {user?.lastLogin
-                ? new Date(user.lastLogin).toLocaleString("id-ID")
-                : "Belum pernah login"}
-            </Text>
-          </View>
-          <View style={styles.accountRow}>
-            <Text style={styles.accountLabel}>Member Sejak:</Text>
-            <Text style={styles.accountValue}>
-              {new Date(user?.createdAt).toLocaleDateString("id-ID")}
-            </Text>
+          <View style={styles.statsGrid}>
+            {statsCards.map((item, index) => (
+              <StatCard key={index} item={item} />
+            ))}
           </View>
         </View>
-      </View>
-    </ScrollView>
+
+        {/* Bottom padding for navigation */}
+        <View style={styles.bottomPadding} />
+      </ScrollView>
+
+      {/* Bottom Navigation */}
+      <BottomNavigation />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
-  },
-  contentContainer: {
-    paddingBottom: 30,
+    backgroundColor: "#f5f5f5",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#f5f5f5",
   },
   loadingText: {
-    marginTop: 12,
     fontSize: 16,
     color: "#6b7280",
   },
   header: {
+    backgroundColor: "#3b82f6",
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+  },
+  headerContent: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 20,
-    backgroundColor: "#fff",
+    alignItems: "center",
   },
-  headerLeft: {
-    flex: 1,
+  appTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "white",
   },
   greeting: {
     fontSize: 16,
-    color: "#6b7280",
-  },
-  username: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#1f2937",
+    color: "#bfdbfe",
     marginTop: 4,
-  },
-  userEmail: {
-    fontSize: 14,
-    color: "#9ca3af",
-    marginTop: 2,
   },
   logoutButton: {
     padding: 8,
   },
-  statusContainer: {
-    backgroundColor: "#fff",
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f3f4f6",
+  content: {
+    flex: 1,
+    padding: 20,
   },
-  statusItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  statusText: {
-    fontSize: 14,
-    marginLeft: 8,
-    fontWeight: "500",
-  },
-  statsSection: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+  section: {
+    marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
+    fontSize: 18,
+    fontWeight: "600",
     color: "#1f2937",
     marginBottom: 16,
   },
-  statsGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 12,
+  actionCardsContainer: {
+    gap: 12,
   },
-  statCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
+  actionCard: {
+    borderRadius: 16,
     padding: 16,
-    width: (width - 60) / 2,
-    borderLeftWidth: 4,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
   },
-  statContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  statLeft: {
-    flex: 1,
-  },
-  statTitle: {
-    fontSize: 12,
-    color: "#6b7280",
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#1f2937",
-  },
-  statIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  actionsSection: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-  },
-  actionButton: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
+  actionCardContent: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
   },
-  actionIcon: {
+  actionIconContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#f8f9fa",
-    alignItems: "center",
     justifyContent: "center",
+    alignItems: "center",
     marginRight: 16,
   },
-  actionContent: {
+  actionTextContainer: {
     flex: 1,
   },
   actionTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: "#1f2937",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   actionSubtitle: {
     fontSize: 14,
     color: "#6b7280",
   },
-  accountSection: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-  },
-  accountCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  accountRow: {
+  statsGrid: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f3f4f6",
+    flexWrap: "wrap",
+    gap: 12,
   },
-  accountLabel: {
-    fontSize: 14,
-    color: "#6b7280",
-    fontWeight: "500",
-    flex: 1,
+  statCard: {
+    width: (width - 52) / 2, // 2 columns with padding and gap
+    borderRadius: 16,
+    padding: 16,
+    alignItems: "center",
   },
-  accountValue: {
-    fontSize: 14,
+  statIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: "bold",
     color: "#1f2937",
-    flex: 2,
-    textAlign: "right",
+    marginBottom: 4,
+  },
+  statTitle: {
+    fontSize: 12,
+    color: "#6b7280",
+    textAlign: "center",
+  },
+  bottomPadding: {
+    height: 100, // Space for bottom navigation
   },
 });
