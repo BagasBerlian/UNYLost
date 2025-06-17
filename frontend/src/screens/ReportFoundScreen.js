@@ -1,4 +1,4 @@
-// File: frontend/src/screens/ReportFoundScreen.js - DEBUGGING STEP
+// File: frontend/src/screens/ReportFoundScreen.js - Enhanced Version
 import React, { useState } from "react";
 import {
   View,
@@ -32,6 +32,7 @@ export default function ReportFoundScreen() {
     category: "",
     locationFound: "",
     foundDate: new Date(),
+    foundTime: new Date(),
     images: [],
   });
 
@@ -41,19 +42,16 @@ export default function ReportFoundScreen() {
   const categories = [
     "Dompet/Tas",
     "Elektronik",
-    "Kartu Identitas",
-    "Kunci",
-    "Buku/ATK",
+    "Kendaraan",
     "Aksesoris",
+    "Dokumen",
+    "Alat Tulis",
     "Pakaian",
     "Lainnya",
   ];
 
   const handleInputChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleImagePicker = async () => {
@@ -61,62 +59,56 @@ export default function ReportFoundScreen() {
       const permissionResult =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (permissionResult.granted === false) {
-        Alert.alert(
-          "Permission Required",
-          "Permission to access camera roll is required!"
+        Alert.alert("Izin dibutuhkan", "Akses ke galeri foto diperlukan!");
+        return;
+      }
+
+      // Coba multiple selection terlebih dahulu (untuk Web dan device yang support)
+      try {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"], // Array of strings, bukan konstanta
+          allowsMultipleSelection: true,
+          selectionLimit: 5,
+          quality: 0.8,
+          allowsEditing: false,
+        });
+
+        if (!result.canceled && result.assets) {
+          const newImages = result.assets.slice(0, 5 - formData.images.length);
+          setFormData((prev) => ({
+            ...prev,
+            images: [...prev.images, ...newImages],
+          }));
+        }
+      } catch (multipleError) {
+        // Fallback ke single selection jika multiple tidak didukung
+        console.log(
+          "Multiple selection not supported, falling back to single selection"
         );
-        return;
-      }
-      if (formData.images.length >= 5) {
-        Alert.alert("Maksimal 5 Foto", "Anda sudah memilih maksimal 5 foto");
-        return;
-      }
 
-      const result = await ImagePicker.launchImageLibraryAsync({
-        // --- LANGKAH DEBUGGING: Baris ini kita nonaktifkan sementara ---
-        // mediaTypes: [ImagePicker.MediaTypeOptions.Images],
-        mediaTypes: ["images"],
-        allowsMultipleSelection: true,
-        selectionLimit: 5 - formData.images.length,
-        quality: 0.8,
-        aspect: [4, 3],
-      });
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsMultipleSelection: false,
+          quality: 0.8,
+          allowsEditing: true,
+          aspect: [4, 3],
+        });
 
-      if (!result.canceled && result.assets) {
-        const newImages = result.assets.map((asset) => ({
-          uri: asset.uri,
-          name: asset.fileName || `image_${Date.now()}.jpg`,
-          type: asset.type || "image/jpeg",
-        }));
-        setFormData((prev) => ({
-          ...prev,
-          images: [...prev.images, ...newImages],
-        }));
+        if (!result.canceled && result.assets) {
+          const newImage = result.assets[0];
+          if (formData.images.length < 5) {
+            setFormData((prev) => ({
+              ...prev,
+              images: [...prev.images, newImage],
+            }));
+          } else {
+            Alert.alert("Maksimal", "Maksimal 5 foto dapat diunggah");
+          }
+        }
       }
     } catch (error) {
-      console.error("Image picker error:", error);
-      Alert.alert("Error", "Terjadi kesalahan saat memilih gambar.");
-    }
-  };
-
-  const onDateChange = (event, selectedDate) => {
-    setShowDatePicker(Platform.OS === "ios");
-    if (selectedDate) {
-      const newDate = new Date(formData.foundDate);
-      newDate.setFullYear(selectedDate.getFullYear());
-      newDate.setMonth(selectedDate.getMonth());
-      newDate.setDate(selectedDate.getDate());
-      handleInputChange("foundDate", newDate);
-    }
-  };
-
-  const onTimeChange = (event, selectedTime) => {
-    setShowTimePicker(Platform.OS === "ios");
-    if (selectedTime) {
-      const newTime = new Date(formData.foundDate);
-      newTime.setHours(selectedTime.getHours());
-      newTime.setMinutes(selectedTime.getMinutes());
-      handleInputChange("foundDate", newTime);
+      console.error("Error picking images:", error);
+      Alert.alert("Error", "Gagal memilih gambar");
     }
   };
 
@@ -127,11 +119,134 @@ export default function ReportFoundScreen() {
     }));
   };
 
+  const handleDateChange = (event, selectedDate) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setFormData((prev) => ({ ...prev, foundDate: selectedDate }));
+    }
+  };
+
+  const handleTimeChange = (event, selectedTime) => {
+    setShowTimePicker(false);
+    if (selectedTime) {
+      setFormData((prev) => ({ ...prev, foundTime: selectedTime }));
+    }
+  };
+
   const validateForm = () => {
+    const errors = [];
+
+    if (!formData.itemName.trim()) errors.push("Nama barang harus diisi");
+    if (!formData.description.trim()) errors.push("Deskripsi harus diisi");
+    if (!formData.category) errors.push("Kategori harus dipilih");
+    if (!formData.locationFound.trim())
+      errors.push("Lokasi ditemukan harus diisi");
+    if (formData.images.length === 0)
+      errors.push("Minimal 1 foto harus diunggah");
+
+    return errors.length === 0;
+  };
+
+  const validateFormWithAlert = () => {
+    const errors = [];
+
+    if (!formData.itemName.trim()) errors.push("Nama barang harus diisi");
+    if (!formData.description.trim()) errors.push("Deskripsi harus diisi");
+    if (!formData.category) errors.push("Kategori harus dipilih");
+    if (!formData.locationFound.trim())
+      errors.push("Lokasi ditemukan harus diisi");
+    if (formData.images.length === 0)
+      errors.push("Minimal 1 foto harus diunggah");
+
+    if (errors.length > 0) {
+      Alert.alert("Form Tidak Valid", errors.join("\n"));
+      return false;
+    }
+
     return true;
   };
+
   const handleSubmit = async () => {
-    /* ... */
+    if (!validateFormWithAlert()) return;
+
+    setLoading(true);
+    try {
+      const userToken = await AsyncStorage.getItem("userToken");
+      if (!userToken) {
+        Alert.alert("Error", "Session expired. Please login again.");
+        return;
+      }
+
+      // Prepare form data
+      const formDataToSend = new FormData();
+
+      // Add text fields
+      formDataToSend.append("itemName", formData.itemName.trim());
+      formDataToSend.append("description", formData.description.trim());
+      formDataToSend.append("category", formData.category);
+      formDataToSend.append("locationFound", formData.locationFound.trim());
+      formDataToSend.append(
+        "foundDate",
+        formData.foundDate.toISOString().split("T")[0]
+      );
+      formDataToSend.append(
+        "foundTime",
+        formData.foundTime.toTimeString().split(" ")[0]
+      );
+
+      // Add images
+      formData.images.forEach((image, index) => {
+        formDataToSend.append("images", {
+          uri: image.uri,
+          type: "image/jpeg",
+          name: `found_item_${index}.jpg`,
+        });
+      });
+
+      // API call to backend
+      const response = await fetch(
+        "http://192.168.100.193:5000/api/items/found",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${userToken}`,
+            "Content-Type": "multipart/form-data",
+          },
+          body: formDataToSend,
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        Alert.alert(
+          "Sukses!",
+          "Laporan penemuan barang berhasil dikirim. Sistem akan mencari kecocokan dengan laporan kehilangan.",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                navigation.navigate("ReportSuccess", {
+                  type: "found",
+                  reportId: result.data?.id,
+                  matchesCount: result.data?.matchesCount || 0,
+                });
+              },
+            },
+          ]
+        );
+      } else {
+        throw new Error(result.message || "Gagal mengirim laporan");
+      }
+    } catch (error) {
+      console.error("Submit error:", error);
+      Alert.alert(
+        "Error",
+        error.message || "Gagal mengirim laporan. Silakan coba lagi."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -139,8 +254,7 @@ export default function ReportFoundScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
-      <View style={styles.container}>
-        {/* ... (sisa kode JSX tidak diubah) ... */}
+      <View style={{ flex: 1 }}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity
@@ -149,10 +263,10 @@ export default function ReportFoundScreen() {
           >
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>LAPORKAN TEMUAN</Text>
+          <Text style={styles.headerTitle}>LAPORKAN PENEMUAN</Text>
         </View>
 
-        {/* Form */}
+        {/* Content */}
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           {/* Info Banner */}
           <View style={styles.infoBanner}>
@@ -160,18 +274,18 @@ export default function ReportFoundScreen() {
               <Ionicons name="information-circle" size={20} color="#3b82f6" />
             </View>
             <Text style={styles.infoText}>
-              Silakan isi detail barang yang kamu temukan dengan lengkap untuk
-              memudahkan proses pengembalian.
+              Silakan isi detail barang yang kamu temukan dengan lengkap agar
+              pemilik dapat mengidentifikasi barangnya.
             </Text>
           </View>
-          {/* Upload Photos */}
+
+          {/* Upload Photos Section */}
           <View style={styles.section}>
             <Text style={styles.label}>
-              Unggah Foto Barang <Text style={styles.required}>*</Text> (minimal
-              1 foto)
+              Unggah Foto Barang <Text style={styles.required}>*</Text>
             </Text>
+            <Text style={styles.sublabel}>Minimal 1 foto, maksimal 5 foto</Text>
 
-            {/* Image Grid */}
             <View style={styles.imageGrid}>
               {formData.images.map((img, index) => (
                 <View key={index} style={styles.imageContainer}>
@@ -185,19 +299,14 @@ export default function ReportFoundScreen() {
                 </View>
               ))}
 
-              {/* Add Image Button */}
               {formData.images.length < 5 && (
                 <TouchableOpacity
                   style={styles.addImageButton}
                   onPress={handleImagePicker}
                 >
                   <Ionicons name="camera" size={32} color="#9ca3af" />
-                  <Text style={styles.addImageText}>
-                    Klik untuk memasukkan foto
-                  </Text>
-                  <Text style={styles.addImageSubText}>
-                    Format: JPG, PNG (Maks. 5MB)
-                  </Text>
+                  <Text style={styles.addImageText}>Tambah Foto</Text>
+                  <Text style={styles.addImageSubText}>JPG, PNG (Max 5MB)</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -213,35 +322,27 @@ export default function ReportFoundScreen() {
               placeholder="Contoh: Dompet Kulit Coklat"
               value={formData.itemName}
               onChangeText={(text) => handleInputChange("itemName", text)}
+              maxLength={100}
             />
           </View>
 
-          {/* Item Description */}
+          {/* Description */}
           <View style={styles.section}>
             <Text style={styles.label}>
-              Deskripsi Detail Barang <Text style={styles.required}>*</Text>
+              Deskripsi Detail <Text style={styles.required}>*</Text>
             </Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="Jelaskan detail barang seperti warna, merek, kondisi, isi di dalamnya (jika relevan), dll."
+              placeholder="Jelaskan detail seperti warna, merek, kondisi, isi (jika ada), ciri khusus, dll."
               multiline
               numberOfLines={4}
               value={formData.description}
               onChangeText={(text) => handleInputChange("description", text)}
+              maxLength={500}
             />
-          </View>
-
-          {/* Location Found */}
-          <View style={styles.section}>
-            <Text style={styles.label}>
-              Lokasi Ditemukan <Text style={styles.required}>*</Text>
+            <Text style={styles.charCount}>
+              {formData.description.length}/500 karakter
             </Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Contoh: Gedung FMIPA Lantai 2"
-              value={formData.locationFound}
-              onChangeText={(text) => handleInputChange("locationFound", text)}
-            />
           </View>
 
           {/* Category */}
@@ -250,12 +351,11 @@ export default function ReportFoundScreen() {
               Kategori <Text style={styles.required}>*</Text>
             </Text>
             <View style={styles.pickerContainer}>
-              {/* Implementasi Picker yang sebenarnya mungkin memerlukan library terpisah */}
               <TextInput
                 style={styles.input}
                 placeholder="Pilih kategori barang"
                 value={formData.category}
-                editable={false} // Atau gunakan komponen Picker
+                editable={false}
               />
               <Ionicons
                 name="chevron-down"
@@ -268,12 +368,7 @@ export default function ReportFoundScreen() {
                 onValueChange={(itemValue) =>
                   handleInputChange("category", itemValue)
                 }
-                style={{
-                  position: "absolute",
-                  width: "100%",
-                  height: "100%",
-                  opacity: 0,
-                }}
+                style={styles.picker}
               >
                 <Picker.Item label="Pilih kategori barang" value="" />
                 {categories.map((cat) => (
@@ -283,233 +378,278 @@ export default function ReportFoundScreen() {
             </View>
           </View>
 
-          {/* Found Date & Time */}
-          <View
-            style={[
-              styles.section,
-              { flexDirection: "row", justifyContent: "space-between" },
-            ]}
-          >
-            <View style={{ flex: 1, marginRight: 8 }}>
-              <Text style={styles.label}>
-                Tanggal Ditemukan <Text style={styles.required}>*</Text>
-              </Text>
-              <TouchableOpacity
-                style={styles.dateInputContainer}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <TextInput
-                  style={styles.input}
-                  value={formData.foundDate.toLocaleDateString("id-ID")}
-                  editable={false}
-                />
-                <Ionicons
-                  name="calendar"
-                  size={20}
-                  color="#6b7280"
-                  style={styles.pickerIcon}
-                />
-              </TouchableOpacity>
-            </View>
-            <View style={{ flex: 1, marginLeft: 8 }}>
-              <Text style={styles.label}>
-                Waktu Ditemukan <Text style={styles.required}>*</Text>
-              </Text>
-              <TouchableOpacity
-                style={styles.dateInputContainer}
-                onPress={() => setShowTimePicker(true)}
-              >
-                <TextInput
-                  style={styles.input}
-                  value={formData.foundDate.toLocaleTimeString("id-ID", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                  editable={false}
-                />
-                <Ionicons
-                  name="time"
-                  size={20}
-                  color="#6b7280"
-                  style={styles.pickerIcon}
-                />
-              </TouchableOpacity>
-            </View>
+          {/* Location Found */}
+          <View style={styles.section}>
+            <Text style={styles.label}>
+              Lokasi Ditemukan <Text style={styles.required}>*</Text>
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Contoh: Gedung FMIPA Lantai 2, dekat lift"
+              value={formData.locationFound}
+              onChangeText={(text) => handleInputChange("locationFound", text)}
+              maxLength={200}
+            />
           </View>
-          {showDatePicker && (
-            <DateTimePicker
-              value={formData.foundDate}
-              mode="date"
-              display="default"
-              onChange={onDateChange}
-            />
-          )}
-          {showTimePicker && (
-            <DateTimePicker
-              value={formData.foundDate}
-              mode="time"
-              is24Hour={true}
-              display="default"
-              onChange={onTimeChange}
-            />
-          )}
+
+          {/* Date Found */}
+          <View style={styles.section}>
+            <Text style={styles.label}>
+              Tanggal Ditemukan <Text style={styles.required}>*</Text>
+            </Text>
+            <TouchableOpacity
+              style={styles.dateTimeButton}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Text style={styles.dateTimeText}>
+                {formData.foundDate.toLocaleDateString("id-ID", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </Text>
+              <Ionicons name="calendar" size={20} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Time Found */}
+          <View style={styles.section}>
+            <Text style={styles.label}>
+              Waktu Ditemukan <Text style={styles.required}>*</Text>
+            </Text>
+            <TouchableOpacity
+              style={styles.dateTimeButton}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <Text style={styles.dateTimeText}>
+                {formData.foundTime.toLocaleTimeString("id-ID", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}{" "}
+                WIB
+              </Text>
+              <Ionicons name="time" size={20} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
 
           {/* Submit Button */}
           <TouchableOpacity
-            style={styles.submitButton}
+            style={[
+              styles.submitButton,
+              !validateForm() && styles.submitButtonDisabled,
+            ]}
             onPress={handleSubmit}
-            disabled={loading}
+            disabled={loading || !validateForm()}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
+              <ActivityIndicator size="small" color="white" />
             ) : (
-              <Text style={styles.submitButtonText}>Kirim Laporan</Text>
+              <>
+                <Ionicons name="send" size={20} color="white" />
+                <Text style={styles.submitText}>Kirim Laporan</Text>
+              </>
             )}
           </TouchableOpacity>
+
+          <View style={{ height: 100 }} />
         </ScrollView>
+
+        {/* Date/Time Pickers */}
+        {showDatePicker && (
+          <DateTimePicker
+            value={formData.foundDate}
+            mode="date"
+            display="default"
+            onChange={handleDateChange}
+            maximumDate={new Date()}
+          />
+        )}
+
+        {showTimePicker && (
+          <DateTimePicker
+            value={formData.foundTime}
+            mode="time"
+            display="default"
+            onChange={handleTimeChange}
+          />
+        )}
       </View>
     </KeyboardAvoidingView>
   );
 }
+
 const styles = StyleSheet.create({
-  /* ... (Gaya tidak diubah) ... */
   container: {
     flex: 1,
     backgroundColor: "#f8fafc",
   },
   header: {
-    backgroundColor: "#3b82f6",
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: 40,
-    paddingBottom: 16,
-    paddingHorizontal: 16,
-    elevation: 4,
+    backgroundColor: "#3b82f6",
+    paddingTop: Platform.OS === "ios" ? 50 : 30,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
   },
   backButton: {
-    padding: 8,
-    marginRight: 16,
+    marginRight: 15,
+    padding: 5,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
+    fontSize: 18,
+    fontWeight: "600",
     color: "white",
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
   },
   infoBanner: {
     flexDirection: "row",
-    alignItems: "center",
     backgroundColor: "#eff6ff",
-    padding: 16,
-    marginVertical: 16,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: "#3b82f6",
+    padding: 15,
+    borderRadius: 12,
+    marginTop: 20,
+    marginBottom: 25,
   },
   infoIcon: {
     marginRight: 12,
+    marginTop: 2,
   },
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: "#1e3a8a",
-  },
-  content: {
-    paddingHorizontal: 16,
+    color: "#1e40af",
+    lineHeight: 20,
   },
   section: {
-    marginBottom: 20,
+    marginBottom: 25,
   },
   label: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#1f2937",
+    color: "#374151",
     marginBottom: 8,
+  },
+  sublabel: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginBottom: 12,
   },
   required: {
     color: "#ef4444",
   },
   input: {
-    backgroundColor: "white",
-    borderColor: "#d1d5db",
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: "#d1d5db",
+    borderRadius: 12,
+    padding: 15,
     fontSize: 16,
-    color: "#1f2937",
+    backgroundColor: "white",
+    color: "#374151",
   },
   textArea: {
     height: 100,
     textAlignVertical: "top",
   },
+  charCount: {
+    fontSize: 12,
+    color: "#6b7280",
+    textAlign: "right",
+    marginTop: 5,
+  },
+  pickerContainer: {
+    position: "relative",
+  },
+  pickerIcon: {
+    position: "absolute",
+    right: 15,
+    top: 15,
+    zIndex: 1,
+  },
+  picker: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+    opacity: 0,
+  },
+  dateTimeButton: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 12,
+    padding: 15,
+    backgroundColor: "white",
+  },
+  dateTimeText: {
+    fontSize: 16,
+    color: "#374151",
+  },
   imageGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginTop: 8,
+    justifyContent: "space-between",
   },
   imageContainer: {
     position: "relative",
-    marginRight: 10,
+    width: (width - 60) / 3,
+    height: (width - 60) / 3,
     marginBottom: 10,
   },
   image: {
-    width: (width - 32 - 40) / 4,
-    height: (width - 32 - 40) / 4,
-    borderRadius: 8,
-    backgroundColor: "#e5e7eb",
+    width: "100%",
+    height: "100%",
+    borderRadius: 12,
   },
   removeButton: {
     position: "absolute",
     top: -5,
     right: -5,
     backgroundColor: "white",
-    borderRadius: 12,
+    borderRadius: 10,
   },
   addImageButton: {
-    width: width - 33,
-    height: 120,
-    borderRadius: 8,
+    width: (width - 60) / 3,
+    height: (width - 60) / 3,
     borderWidth: 2,
     borderColor: "#d1d5db",
     borderStyle: "dashed",
+    borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f9fafb",
-    padding: 10,
+    marginBottom: 10,
   },
   addImageText: {
-    marginTop: 4,
+    fontSize: 12,
     color: "#6b7280",
-    fontSize: 14,
-    fontWeight: "500",
+    textAlign: "center",
+    marginTop: 5,
   },
   addImageSubText: {
+    fontSize: 10,
     color: "#9ca3af",
-    fontSize: 12,
-  },
-  pickerContainer: {
-    justifyContent: "center",
-  },
-  pickerIcon: {
-    position: "absolute",
-    right: 12,
-  },
-  dateInputContainer: {
-    justifyContent: "center",
+    textAlign: "center",
+    marginTop: 2,
   },
   submitButton: {
-    backgroundColor: "#3b82f6",
-    paddingVertical: 14,
-    borderRadius: 8,
-    alignItems: "center",
+    flexDirection: "row",
     justifyContent: "center",
-    marginTop: 10,
-    marginBottom: 40,
-    elevation: 2,
+    alignItems: "center",
+    backgroundColor: "#10b981",
+    paddingVertical: 18,
+    borderRadius: 12,
+    marginTop: 20,
   },
-  submitButtonText: {
+  submitButtonDisabled: {
+    backgroundColor: "#9ca3af",
+  },
+  submitText: {
     color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
   },
 });

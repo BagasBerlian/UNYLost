@@ -1,11 +1,6 @@
-"""
-Updated Matching Router untuk UNY Lost AI Layer v2
-Designed untuk integration dengan Backend Node.js
-"""
-
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from typing import Optional, List, Dict, Any
 from PIL import Image
 from io import BytesIO
@@ -13,6 +8,8 @@ import asyncio
 from datetime import datetime
 from loguru import logger
 import requests
+import numpy as np
+import json
 
 # Pydantic models untuk request validation
 class ProcessItemRequest(BaseModel):
@@ -25,15 +22,43 @@ class ProcessItemRequest(BaseModel):
     threshold: Optional[float] = Field(0.75, description="Minimum similarity threshold")
     max_results: Optional[int] = Field(10, description="Maximum number of results")
 
+    @validator('threshold')
+    def validate_threshold(cls, v):
+        if not 0.0 <= v <= 1.0:
+            raise ValueError('Threshold must be between 0.0 and 1.0')
+        return v
+
+    @validator('collection')
+    def validate_collection(cls, v):
+        if v not in ['found_items', 'lost_items']:
+            raise ValueError('Collection must be found_items or lost_items')
+        return v
+
 class BackgroundMatchRequest(BaseModel):
     limit: Optional[int] = Field(100, description="Maximum items to process")
     threshold: Optional[float] = Field(0.75, description="Minimum similarity threshold")
+
+    @validator('limit')
+    def validate_limit(cls, v):
+        if not 1 <= v <= 500:
+            raise ValueError('Limit must be between 1 and 500')
+        return v
 
 class SimilarityRequest(BaseModel):
     item1_id: str = Field(..., description="ID item pertama")
     item2_id: str = Field(..., description="ID item kedua")
     collection1: str = Field("found_items", description="Collection item pertama")
-    collection2: str = Field("found_items", description="Collection item kedua")
+    collection2: str = Field("lost_items", description="Collection item kedua")
+
+class MatchResult(BaseModel):
+    item_id: str
+    item_name: str
+    description: str
+    category: str
+    similarity: float
+    location: Optional[str] = None
+    date: Optional[str] = None
+    confidence: str
 
 router = APIRouter()
 
@@ -50,6 +75,7 @@ async def process_item_for_matching(
     try:
         app_state = request.app.state
         
+        # Check if models are loaded
         if not hasattr(app_state, 'models') or not app_state.models:
             raise HTTPException(status_code=503, detail="AI models not loaded")
         
@@ -59,106 +85,107 @@ async def process_item_for_matching(
         models = app_state.models
         firebase = app_state.firebase
         
-        logger.info(f"🔄 Processing item: {item_request.item_name} (ID: {item_request.item_id})")
+        logger.info(f"Processing {item_request.collection} item: {item_request.item_id}")
         
-        # Load image dari URL jika ada
-        image = None
-        if item_request.image_url:
-            try:
-                image = await _load_image_from_url(item_request.image_url)
-                logger.info(f"📷 Image loaded from URL: {item_request.image_url}")
-            except Exception as e:
-                logger.warning(f"⚠️  Could not load image from URL: {str(e)}")
+        # Generate embeddings untuk item baru
+        embeddings = await generate_item_embeddings(
+            models, 
+            item_request.item_name,
+            item_request.description,
+            item_request.image_url
+        )
         
-        # Generate embeddings
-        embeddings = {
+        if not embeddings:
+            raise HTTPException(status_code=500, detail="Failed to generate embeddings")
+        
+        # Save embeddings ke Firebase
+        item_data = {
             "item_id": item_request.item_id,
             "item_name": item_request.item_name,
             "description": item_request.description,
             "category": item_request.category,
             "image_url": item_request.image_url,
+            "text_embedding": embeddings["text"].tolist(),
+            "image_embedding": embeddings["image"].tolist() if embeddings["image"] is not None else None,
             "processed_at": datetime.now().isoformat(),
-            "embedding_version": "clip_sentence_v2"
+            "status": "active"
         }
         
-        # Generate image embedding
-        if image:
-            try:
-                embeddings['image_embedding'] = models.encode_image(image)
-                logger.info("✅ Image embedding generated")
-            except Exception as e:
-                logger.error(f"❌ Error generating image embedding: {str(e)}")
+        # Save to Firebase
+        firebase.collection(item_request.collection).document(item_request.item_id).set(item_data)
+        logger.info(f"Saved embeddings for item {item_request.item_id}")
         
-        # Generate text embeddings
-        if item_request.description:
-            try:
-                embeddings['text_clip_embedding'] = models.encode_text_clip(item_request.description)
-                embeddings['text_sentence_embedding'] = models.encode_text_sentence(item_request.description)
-                logger.info("✅ Text embeddings generated")
-            except Exception as e:
-                logger.error(f"❌ Error generating text embeddings: {str(e)}")
+        # Find matches dengan collection yang berlawanan
+        target_collection = "lost_items" if item_request.collection == "found_items" else "found_items"
         
-        if not any(key.endswith('_embedding') for key in embeddings.keys()):
-            raise HTTPException(status_code=400, detail="Could not generate any embeddings")
-        
-        # Save embeddings ke Firebase
-        success = firebase.save_item_embeddings(
-            item_request.item_id, 
-            embeddings, 
-            item_request.collection
-        )
-        
-        if not success:
-            logger.warning(f"⚠️  Could not save embeddings to Firebase for {item_request.item_id}")
-        
-        # Find matches di collection yang berlawanan
-        search_collection = "lost_items" if item_request.collection == "found_items" else "found_items"
-        matches = await _find_matches_in_collection(
-            embeddings, 
-            search_collection, 
-            firebase, 
-            models, 
+        matches = await find_similar_items(
+            firebase,
+            embeddings,
+            target_collection,
             item_request.threshold,
-            item_request.max_results
+            item_request.max_results,
+            exclude_item_id=item_request.item_id
         )
         
-        # Save significant matches (background task)
-        if matches:
-            significant_matches = [m for m in matches if m['similarity_score'] >= 0.8]
-            if significant_matches:
-                background_tasks.add_task(
-                    _save_matches_background, 
-                    firebase, 
-                    significant_matches, 
-                    item_request.item_id,
-                    search_collection
-                )
+        logger.info(f"Found {len(matches)} matches for item {item_request.item_id}")
         
-        result = {
-            "item_id": item_request.item_id,
-            "embeddings_saved": success,
-            "embeddings_generated": [k for k in embeddings.keys() if k.endswith('_embedding')],
-            "matches": matches,
-            "total_matches": len(matches),
-            "search_collection": search_collection,
-            "threshold_used": item_request.threshold,
-            "timestamp": datetime.now().isoformat()
-        }
+        # Process matches untuk response
+        processed_matches = []
+        for match in matches:
+            match_result = MatchResult(
+                item_id=match["item_id"],
+                item_name=match["item_name"],
+                description=match["description"][:100] + "..." if len(match["description"]) > 100 else match["description"],
+                category=match.get("category", ""),
+                similarity=round(match["similarity"], 3),
+                location=match.get("location", ""),
+                date=match.get("date", ""),
+                confidence=get_confidence_level(match["similarity"])
+            )
+            processed_matches.append(match_result.dict())
         
-        logger.info(f"✅ Item processed: {item_request.item_id}, found {len(matches)} matches")
-        return result
+        # Background task: notify backend about high similarity matches
+        if processed_matches:
+            background_tasks.add_task(
+                notify_backend_matches,
+                item_request.item_id,
+                item_request.collection,
+                processed_matches
+            )
         
-    except HTTPException:
-        raise
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": f"Item processed successfully",
+                "data": {
+                    "item_id": item_request.item_id,
+                    "processed_at": datetime.now().isoformat(),
+                    "embeddings_generated": True,
+                    "matches_found": len(processed_matches)
+                },
+                "matches": processed_matches,
+                "processing_info": {
+                    "text_embedding_size": len(embeddings["text"]),
+                    "image_embedding_size": len(embeddings["image"]) if embeddings["image"] is not None else 0,
+                    "target_collection": target_collection,
+                    "threshold_used": item_request.threshold
+                }
+            }
+        )
+        
     except Exception as e:
-        logger.error(f"❌ Error processing item: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error processing item {item_request.item_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
 
 @router.post("/background")
-async def background_matching(request: Request, match_request: BackgroundMatchRequest):
+async def background_matching(
+    request: Request,
+    background_request: BackgroundMatchRequest
+):
     """
-    Background matching service untuk semua lost items
-    Dijalankan oleh cron job dari backend setiap 2 jam
+    Background matching untuk semua active items
+    Dijalankan secara periodik oleh cron job dari backend
     """
     try:
         app_state = request.app.state
@@ -169,419 +196,387 @@ async def background_matching(request: Request, match_request: BackgroundMatchRe
         if not hasattr(app_state, 'firebase') or not app_state.firebase:
             raise HTTPException(status_code=503, detail="Firebase not available")
         
+        firebase = app_state.firebase
         models = app_state.models
-        firebase = app_state.firebase
         
-        logger.info("🔄 Starting background matching service...")
+        logger.info(f"Starting background matching with limit {background_request.limit}")
         
-        # Get active lost items
-        lost_items = firebase.search_items_by_status("active", "lost_items")
+        processed_items = 0
+        new_matches = 0
         
-        if not lost_items:
-            return {
-                "status": "completed",
-                "processed": 0,
-                "matches_found": 0,
-                "message": "No active lost items to process",
-                "timestamp": datetime.now().isoformat()
-            }
-        
-        # Get all found items untuk matching
-        found_items = firebase.get_all_embeddings("found_items")
-        
-        if not found_items:
-            return {
-                "status": "completed", 
-                "processed": 0,
-                "matches_found": 0,
-                "message": "No found items in database",
-                "timestamp": datetime.now().isoformat()
-            }
-        
-        processed_count = 0
-        total_matches = 0
-        
-        # Process each lost item
-        for lost_item in lost_items[:match_request.limit]:
+        # Process found items untuk match dengan lost items
+        found_items = get_unprocessed_items(firebase, "found_items", background_request.limit // 2)
+        for item in found_items:
             try:
-                lost_id = lost_item['id']
-                logger.info(f"🔍 Processing lost item: {lost_id}")
-                
-                # Calculate similarities dengan semua found items
-                item_matches = []
-                
-                for found_id, found_data in found_items.items():
-                    try:
-                        similarity = models.hybrid_similarity(
-                            query_image=lost_item.get('image_embedding'),
-                            query_text_clip=lost_item.get('text_clip_embedding'), 
-                            query_text_sentence=lost_item.get('text_sentence_embedding'),
-                            candidate_image=found_data.get('image_embedding'),
-                            candidate_text_clip=found_data.get('text_clip_embedding'),
-                            candidate_text_sentence=found_data.get('text_sentence_embedding')
-                        )
-                        
-                        if similarity >= match_request.threshold:
-                            match_data = {
-                                'lost_item_id': lost_id,
-                                'found_item_id': found_id,
-                                'similarity_score': similarity,
-                                'lost_item_name': lost_item.get('item_name', ''),
-                                'found_item_name': found_data.get('item_name', ''),
-                                'match_type': _determine_match_type(lost_item, found_data, models),
-                                'created_at': datetime.now().isoformat(),
-                                'matching_version': 'clip_sentence_v2'
-                            }
-                            item_matches.append(match_data)
-                            
-                    except Exception as e:
-                        logger.error(f"❌ Error matching {lost_id} with {found_id}: {str(e)}")
-                        continue
-                
-                # Save matches jika ada
-                if item_matches:
-                    # Sort by similarity
-                    item_matches.sort(key=lambda x: x['similarity_score'], reverse=True)
+                # Generate embeddings jika belum ada
+                if not item.get("text_embedding") or not item.get("image_embedding"):
+                    embeddings = await generate_item_embeddings(
+                        models,
+                        item["item_name"],
+                        item["description"],
+                        item.get("image_url")
+                    )
                     
-                    # Save top matches
-                    for match in item_matches[:5]:  # Simpan max 5 match terbaik
-                        match_id = firebase.save_match_result(match)
-                        if match_id:
-                            total_matches += 1
-                            logger.info(f"💫 Match saved: {match_id}")
-                    
-                    # Update lost item status
-                    firebase.update_item_status(lost_id, "has_matches", "lost_items")
+                    # Update embeddings di Firebase
+                    firebase.collection("found_items").document(item["item_id"]).update({
+                        "text_embedding": embeddings["text"].tolist(),
+                        "image_embedding": embeddings["image"].tolist() if embeddings["image"] is not None else None,
+                        "processed_at": datetime.now().isoformat()
+                    })
+                else:
+                    embeddings = {
+                        "text": np.array(item["text_embedding"]),
+                        "image": np.array(item["image_embedding"]) if item.get("image_embedding") else None
+                    }
                 
-                processed_count += 1
-                
-                # Add delay untuk tidak overload system
-                await asyncio.sleep(0.1)
-                
-            except Exception as e:
-                logger.error(f"❌ Error processing lost item {lost_item.get('id')}: {str(e)}")
-                continue
-        
-        result = {
-            "status": "completed",
-            "processed": processed_count,
-            "matches_found": total_matches,
-            "threshold_used": match_request.threshold,
-            "total_lost_items": len(lost_items),
-            "total_found_items": len(found_items),
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        logger.info(f"✅ Background matching completed: {result}")
-        return result
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ Error in background matching: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/similarity")
-async def calculate_similarity(request: Request, similarity_request: SimilarityRequest):
-    """Calculate similarity antara 2 specific items"""
-    try:
-        app_state = request.app.state
-        
-        if not hasattr(app_state, 'models') or not app_state.models:
-            raise HTTPException(status_code=503, detail="AI models not loaded")
-        
-        if not hasattr(app_state, 'firebase') or not app_state.firebase:
-            raise HTTPException(status_code=503, detail="Firebase not available")
-        
-        models = app_state.models
-        firebase = app_state.firebase
-        
-        # Get embeddings untuk kedua items
-        item1_embeddings = firebase.get_item_embeddings(
-            similarity_request.item1_id, 
-            similarity_request.collection1
-        )
-        
-        item2_embeddings = firebase.get_item_embeddings(
-            similarity_request.item2_id,
-            similarity_request.collection2
-        )
-        
-        if not item1_embeddings:
-            raise HTTPException(status_code=404, detail=f"Item {similarity_request.item1_id} not found")
-        
-        if not item2_embeddings:
-            raise HTTPException(status_code=404, detail=f"Item {similarity_request.item2_id} not found")
-        
-        # Calculate various similarities
-        similarities = {}
-        
-        # Image similarity
-        if ('image_embedding' in item1_embeddings and 'image_embedding' in item2_embeddings):
-            img_sim = models.calculate_similarity(
-                item1_embeddings['image_embedding'],
-                item2_embeddings['image_embedding']
-            )
-            similarities['image'] = round(img_sim, 4)
-        
-        # Text CLIP similarity
-        if ('text_clip_embedding' in item1_embeddings and 'text_clip_embedding' in item2_embeddings):
-            clip_sim = models.calculate_similarity(
-                item1_embeddings['text_clip_embedding'],
-                item2_embeddings['text_clip_embedding']
-            )
-            similarities['text_clip'] = round(clip_sim, 4)
-        
-        # Text Sentence similarity
-        if ('text_sentence_embedding' in item1_embeddings and 'text_sentence_embedding' in item2_embeddings):
-            sent_sim = models.calculate_similarity(
-                item1_embeddings['text_sentence_embedding'],
-                item2_embeddings['text_sentence_embedding']
-            )
-            similarities['text_sentence'] = round(sent_sim, 4)
-        
-        # Cross-modal similarities
-        if ('image_embedding' in item1_embeddings and 'text_clip_embedding' in item2_embeddings):
-            cross_sim1 = models.calculate_similarity(
-                item1_embeddings['image_embedding'],
-                item2_embeddings['text_clip_embedding']
-            )
-            similarities['image_to_text'] = round(cross_sim1, 4)
-        
-        if ('text_clip_embedding' in item1_embeddings and 'image_embedding' in item2_embeddings):
-            cross_sim2 = models.calculate_similarity(
-                item1_embeddings['text_clip_embedding'],
-                item2_embeddings['image_embedding']
-            )
-            similarities['text_to_image'] = round(cross_sim2, 4)
-        
-        # Hybrid similarity
-        hybrid_sim = models.hybrid_similarity(
-            query_image=item1_embeddings.get('image_embedding'),
-            query_text_clip=item1_embeddings.get('text_clip_embedding'),
-            query_text_sentence=item1_embeddings.get('text_sentence_embedding'),
-            candidate_image=item2_embeddings.get('image_embedding'),
-            candidate_text_clip=item2_embeddings.get('text_clip_embedding'),
-            candidate_text_sentence=item2_embeddings.get('text_sentence_embedding')
-        )
-        similarities['hybrid'] = round(hybrid_sim, 4)
-        
-        return {
-            "item1": {
-                "id": similarity_request.item1_id,
-                "collection": similarity_request.collection1,
-                "name": item1_embeddings.get('item_name', ''),
-                "embeddings_available": list(k for k in item1_embeddings.keys() if k.endswith('_embedding'))
-            },
-            "item2": {
-                "id": similarity_request.item2_id,
-                "collection": similarity_request.collection2,
-                "name": item2_embeddings.get('item_name', ''),
-                "embeddings_available": list(k for k in item2_embeddings.keys() if k.endswith('_embedding'))
-            },
-            "similarities": similarities,
-            "match_recommendation": {
-                "is_match": hybrid_sim >= 0.75,
-                "confidence": "high" if hybrid_sim >= 0.8 else "medium" if hybrid_sim >= 0.6 else "low",
-                "best_match_type": max(similarities.items(), key=lambda x: x[1])[0] if similarities else None
-            },
-            "timestamp": datetime.now().isoformat()
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ Error calculating similarity: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/stats")
-async def matching_stats(request: Request):
-    """Get matching service statistics"""
-    try:
-        app_state = request.app.state
-        
-        if not hasattr(app_state, 'firebase') or not app_state.firebase:
-            raise HTTPException(status_code=503, detail="Firebase not available")
-        
-        firebase = app_state.firebase
-        
-        # Get recent matches
-        recent_matches = firebase.get_recent_matches(limit=100)
-        
-        # Calculate stats
-        stats = {
-            "total_recent_matches": len(recent_matches),
-            "match_types": {},
-            "similarity_distribution": {
-                "high (>0.8)": 0,
-                "medium (0.6-0.8)": 0,
-                "low (<0.6)": 0
-            },
-            "average_similarity": 0,
-            "collections_stats": firebase.get_stats()
-        }
-        
-        if recent_matches:
-            similarities = []
-            
-            for match in recent_matches:
-                # Match types
-                match_type = match.get('match_type', 'unknown')
-                stats["match_types"][match_type] = stats["match_types"].get(match_type, 0) + 1
-                
-                # Similarity distribution
-                similarity = match.get('similarity_score', 0)
-                if similarity:
-                    similarities.append(similarity)
-                    
-                    if similarity > 0.8:
-                        stats["similarity_distribution"]["high (>0.8)"] += 1
-                    elif similarity >= 0.6:
-                        stats["similarity_distribution"]["medium (0.6-0.8)"] += 1
-                    else:
-                        stats["similarity_distribution"]["low (<0.6)"] += 1
-            
-            # Average similarity
-            if similarities:
-                stats["average_similarity"] = round(sum(similarities) / len(similarities), 4)
-        
-        return {
-            "matching_statistics": stats,
-            "timestamp": datetime.now().isoformat()
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"❌ Error getting matching stats: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Helper functions
-async def _load_image_from_url(url: str) -> Image.Image:
-    """Load image dari URL"""
-    try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        
-        image = Image.open(BytesIO(response.content)).convert("RGB")
-        return image
-        
-    except Exception as e:
-        logger.error(f"❌ Error loading image from URL {url}: {str(e)}")
-        raise
-
-async def _find_matches_in_collection(embeddings: Dict, collection: str, firebase, models, 
-                                    threshold: float, max_results: int) -> List[Dict]:
-    """Find matches dalam specific collection"""
-    try:
-        all_items = firebase.get_all_embeddings(collection)
-        
-        if not all_items:
-            return []
-        
-        matches = []
-        for item_id, item_embeddings in all_items.items():
-            try:
-                similarity = models.hybrid_similarity(
-                    query_image=embeddings.get('image_embedding'),
-                    query_text_clip=embeddings.get('text_clip_embedding'),
-                    query_text_sentence=embeddings.get('text_sentence_embedding'),
-                    candidate_image=item_embeddings.get('image_embedding'),
-                    candidate_text_clip=item_embeddings.get('text_clip_embedding'),
-                    candidate_text_sentence=item_embeddings.get('text_sentence_embedding')
+                # Find matches
+                matches = await find_similar_items(
+                    firebase,
+                    embeddings,
+                    "lost_items",
+                    background_request.threshold,
+                    10,
+                    exclude_item_id=item["item_id"]
                 )
                 
-                if similarity >= threshold:
-                    match_info = {
-                        'item_id': item_id,
-                        'similarity_score': round(similarity, 4),
-                        'item_name': item_embeddings.get('item_name', ''),
-                        'description': item_embeddings.get('description', ''),
-                        'category': item_embeddings.get('category', ''),
-                        'match_type': _determine_match_type(embeddings, item_embeddings, models)
-                    }
-                    matches.append(match_info)
-                    
+                if matches:
+                    new_matches += len(matches)
+                    # Save matches ke Firebase
+                    await save_background_matches(firebase, item["item_id"], "found_items", matches)
+                
+                processed_items += 1
+                
             except Exception as e:
-                logger.error(f"❌ Error calculating similarity for {item_id}: {str(e)}")
+                logger.error(f"Error processing found item {item.get('item_id')}: {str(e)}")
                 continue
         
-        # Sort by similarity (descending)
-        matches.sort(key=lambda x: x['similarity_score'], reverse=True)
-        return matches[:max_results]
+        # Process lost items untuk match dengan found items  
+        lost_items = get_unprocessed_items(firebase, "lost_items", background_request.limit // 2)
+        for item in lost_items:
+            try:
+                # Generate embeddings jika belum ada
+                if not item.get("text_embedding"):
+                    embeddings = await generate_item_embeddings(
+                        models,
+                        item["item_name"],
+                        item["description"],
+                        item.get("image_url")
+                    )
+                    
+                    # Update embeddings di Firebase
+                    firebase.collection("lost_items").document(item["item_id"]).update({
+                        "text_embedding": embeddings["text"].tolist(),
+                        "image_embedding": embeddings["image"].tolist() if embeddings["image"] is not None else None,
+                        "processed_at": datetime.now().isoformat()
+                    })
+                else:
+                    embeddings = {
+                        "text": np.array(item["text_embedding"]),
+                        "image": np.array(item["image_embedding"]) if item.get("image_embedding") else None
+                    }
+                
+                # Find matches
+                matches = await find_similar_items(
+                    firebase,
+                    embeddings,
+                    "found_items",
+                    background_request.threshold,
+                    10,
+                    exclude_item_id=item["item_id"]
+                )
+                
+                if matches:
+                    new_matches += len(matches)
+                    # Save matches ke Firebase
+                    await save_background_matches(firebase, item["item_id"], "lost_items", matches)
+                
+                processed_items += 1
+                
+            except Exception as e:
+                logger.error(f"Error processing lost item {item.get('item_id')}: {str(e)}")
+                continue
+        
+        logger.info(f"Background matching completed. Processed: {processed_items}, New matches: {new_matches}")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": "Background matching completed",
+                "processed_items": processed_items,
+                "new_matches": new_matches,
+                "threshold_used": background_request.threshold,
+                "completed_at": datetime.now().isoformat()
+            }
+        )
         
     except Exception as e:
-        logger.error(f"❌ Error finding matches in collection {collection}: {str(e)}")
+        logger.error(f"Error in background matching: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Background matching failed: {str(e)}")
+
+@router.post("/similarity")
+async def calculate_similarity(
+    request: Request,
+    similarity_request: SimilarityRequest
+):
+    """
+    Calculate similarity antara dua items
+    """
+    try:
+        app_state = request.app.state
+        
+        if not hasattr(app_state, 'firebase') or not app_state.firebase:
+            raise HTTPException(status_code=503, detail="Firebase not available")
+        
+        firebase = app_state.firebase
+        
+        # Get item embeddings dari Firebase
+        item1_doc = firebase.collection(similarity_request.collection1).document(similarity_request.item1_id).get()
+        item2_doc = firebase.collection(similarity_request.collection2).document(similarity_request.item2_id).get()
+        
+        if not item1_doc.exists or not item2_doc.exists:
+            raise HTTPException(status_code=404, detail="One or both items not found")
+        
+        item1_data = item1_doc.to_dict()
+        item2_data = item2_doc.to_dict()
+        
+        # Calculate similarity
+        similarity_score = calculate_combined_similarity(
+            item1_data.get("text_embedding", []),
+            item1_data.get("image_embedding", []),
+            item2_data.get("text_embedding", []),
+            item2_data.get("image_embedding", [])
+        )
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "similarity": round(similarity_score, 3),
+                "confidence": get_confidence_level(similarity_score),
+                "items": {
+                    "item1": {
+                        "id": similarity_request.item1_id,
+                        "name": item1_data.get("item_name", ""),
+                        "collection": similarity_request.collection1
+                    },
+                    "item2": {
+                        "id": similarity_request.item2_id,
+                        "name": item2_data.get("item_name", ""),
+                        "collection": similarity_request.collection2
+                    }
+                }
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error calculating similarity: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Similarity calculation failed: {str(e)}")
+
+# Helper functions
+
+async def generate_item_embeddings(models, item_name, description, image_url=None):
+    """Generate embeddings untuk item"""
+    try:
+        # Text embedding
+        text_input = f"{item_name}. {description}".strip()
+        text_embedding = models.encode_text(text_input)
+        
+        # Image embedding
+        image_embedding = None
+        if image_url:
+            try:
+                image_embedding = await models.encode_image_from_url(image_url)
+            except Exception as e:
+                logger.warning(f"Failed to encode image from URL {image_url}: {str(e)}")
+        
+        return {
+            "text": text_embedding,
+            "image": image_embedding
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating embeddings: {str(e)}")
+        return None
+
+async def find_similar_items(firebase, embeddings, target_collection, threshold, max_results, exclude_item_id=None):
+    """Find similar items dalam target collection"""
+    try:
+        # Get all items dari target collection
+        items_ref = firebase.collection(target_collection)
+        query = items_ref.where("status", "==", "active")
+        
+        docs = query.stream()
+        
+        similarities = []
+        
+        for doc in docs:
+            doc_data = doc.to_dict()
+            item_id = doc_data.get("item_id")
+            
+            # Skip item yang sama
+            if item_id == exclude_item_id:
+                continue
+            
+            # Calculate similarity
+            target_text_embedding = doc_data.get("text_embedding", [])
+            target_image_embedding = doc_data.get("image_embedding", [])
+            
+            if not target_text_embedding:
+                continue
+            
+            similarity = calculate_combined_similarity(
+                embeddings["text"],
+                embeddings["image"],
+                np.array(target_text_embedding),
+                np.array(target_image_embedding) if target_image_embedding else None
+            )
+            
+            if similarity >= threshold:
+                similarities.append({
+                    **doc_data,
+                    "similarity": similarity
+                })
+        
+        # Sort by similarity dan limit results
+        similarities.sort(key=lambda x: x["similarity"], reverse=True)
+        return similarities[:max_results]
+        
+    except Exception as e:
+        logger.error(f"Error finding similar items: {str(e)}")
         return []
 
-def _determine_match_type(embeddings1: Dict, embeddings2: Dict, models) -> str:
-    """Determine type of match based on strongest similarity"""
+def calculate_combined_similarity(text_emb1, image_emb1, text_emb2, image_emb2):
+    """Calculate combined similarity dari text dan image embeddings"""
     try:
-        similarities = {}
+        # Text similarity (always available)
+        text_sim = cosine_similarity(np.array(text_emb1), np.array(text_emb2))
         
-        # Image similarity
-        if ('image_embedding' in embeddings1 and 'image_embedding' in embeddings2):
-            img_sim = models.calculate_similarity(
-                embeddings1['image_embedding'],
-                embeddings2['image_embedding']
-            )
-            similarities['image'] = img_sim
-        
-        # Text similarities
-        if ('text_clip_embedding' in embeddings1 and 'text_clip_embedding' in embeddings2):
-            clip_sim = models.calculate_similarity(
-                embeddings1['text_clip_embedding'],
-                embeddings2['text_clip_embedding']
-            )
-            similarities['text_clip'] = clip_sim
-        
-        if ('text_sentence_embedding' in embeddings1 and 'text_sentence_embedding' in embeddings2):
-            sent_sim = models.calculate_similarity(
-                embeddings1['text_sentence_embedding'],
-                embeddings2['text_sentence_embedding']
-            )
-            similarities['text_semantic'] = sent_sim
-        
-        # Cross-modal
-        if ('image_embedding' in embeddings1 and 'text_clip_embedding' in embeddings2):
-            cross_sim = models.calculate_similarity(
-                embeddings1['image_embedding'],
-                embeddings2['text_clip_embedding']
-            )
-            similarities['cross_modal'] = cross_sim
-        
-        if not similarities:
-            return "unknown"
-        
-        # Return strongest match type
-        best_match = max(similarities.items(), key=lambda x: x[1])
-        
-        if best_match[1] > 0.8:
-            return f"strong_{best_match[0]}"
-        elif best_match[1] > 0.6:
-            return best_match[0]
+        # Image similarity (optional)
+        if image_emb1 is not None and image_emb2 is not None:
+            image_sim = cosine_similarity(np.array(image_emb1), np.array(image_emb2))
+            # Weighted combination: 60% text, 40% image
+            combined_sim = 0.6 * text_sim + 0.4 * image_sim
         else:
-            return "weak_match"
-            
+            # Only text similarity
+            combined_sim = text_sim
+        
+        return float(combined_sim)
+        
     except Exception as e:
-        logger.error(f"❌ Error determining match type: {str(e)}")
-        return "error"
+        logger.error(f"Error calculating combined similarity: {str(e)}")
+        return 0.0
 
-async def _save_matches_background(firebase, matches: List[Dict], item_id: str, collection: str):
-    """Background task untuk save significant matches"""
+def cosine_similarity(vec1, vec2):
+    """Calculate cosine similarity antara dua vectors"""
     try:
-        for match in matches:
-            match_data = {
-                **match,
-                'source_item_id': item_id,
-                'target_collection': collection,
-                'match_source': 'process_item',
-                'created_at': datetime.now().isoformat()
-            }
-            
-            match_id = firebase.save_match_result(match_data)
-            if match_id:
-                logger.info(f"💫 Background match saved: {match_id}")
-                
+        dot_product = np.dot(vec1, vec2)
+        norm1 = np.linalg.norm(vec1)
+        norm2 = np.linalg.norm(vec2)
+        
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+        
+        return dot_product / (norm1 * norm2)
+        
     except Exception as e:
-        logger.error(f"❌ Error saving background matches: {str(e)}")
+        logger.error(f"Error calculating cosine similarity: {str(e)}")
+        return 0.0
+
+def get_confidence_level(similarity):
+    """Get confidence level berdasarkan similarity score"""
+    if similarity >= 0.9:
+        return "Very High"
+    elif similarity >= 0.8:
+        return "High"
+    elif similarity >= 0.7:
+        return "Medium"
+    elif similarity >= 0.6:
+        return "Low"
+    else:
+        return "Very Low"
+
+def get_unprocessed_items(firebase, collection_name, limit):
+    """Get items yang belum diproses atau perlu di-reprocess"""
+    try:
+        # Get items yang belum ada embeddings atau sudah lama tidak diproses
+        items_ref = firebase.collection(collection_name)
+        query = items_ref.where("status", "==", "active").limit(limit)
+        
+        docs = query.stream()
+        items = []
+        
+        for doc in docs:
+            doc_data = doc.to_dict()
+            
+            # Include items yang belum ada text_embedding
+            if not doc_data.get("text_embedding"):
+                items.append(doc_data)
+                continue
+            
+            # Include items yang sudah lama tidak diproses (>24 jam)
+            processed_at = doc_data.get("processed_at")
+            if processed_at:
+                try:
+                    processed_time = datetime.fromisoformat(processed_at.replace("Z", "+00:00"))
+                    if (datetime.now() - processed_time).total_seconds() > 86400:  # 24 hours
+                        items.append(doc_data)
+                except:
+                    items.append(doc_data)
+            else:
+                items.append(doc_data)
+        
+        return items
+        
+    except Exception as e:
+        logger.error(f"Error getting unprocessed items: {str(e)}")
+        return []
+
+async def save_background_matches(firebase, item_id, collection, matches):
+    """Save background matches ke Firebase"""
+    try:
+        match_data = {
+            "item_id": item_id,
+            "collection": collection,
+            "matches": matches,
+            "created_at": datetime.now().isoformat(),
+            "processed": False
+        }
+        
+        # Save ke matches collection
+        firebase.collection("matches").add(match_data)
+        logger.info(f"Saved {len(matches)} background matches for item {item_id}")
+        
+    except Exception as e:
+        logger.error(f"Error saving background matches: {str(e)}")
+
+async def notify_backend_matches(item_id, collection, matches):
+    """Notify backend tentang matches yang ditemukan"""
+    try:
+        # Filter high similarity matches (>= 0.8)
+        high_sim_matches = [m for m in matches if m["similarity"] >= 0.8]
+        
+        if not high_sim_matches:
+            return
+        
+        # Send notification ke backend
+        backend_url = "http://localhost:3000/api/matches/ai-notification"
+        payload = {
+            "item_id": item_id,
+            "collection": collection,
+            "matches": high_sim_matches,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        response = requests.post(backend_url, json=payload, timeout=10)
+        
+        if response.status_code == 200:
+            logger.info(f"Successfully notified backend about {len(high_sim_matches)} high similarity matches")
+        else:
+            logger.warning(f"Backend notification failed with status {response.status_code}")
+            
+    except Exception as e:
+        logger.error(f"Error notifying backend: {str(e)}")
+
+# Export router
+__all__ = ["router"]

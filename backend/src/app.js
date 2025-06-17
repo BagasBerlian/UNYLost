@@ -1,6 +1,8 @@
 // File: backend/src/app.js - COMPLETE FIXED VERSION WITH ALL ENDPOINTS
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -24,14 +26,31 @@ app.use(cors({
 app.options('*', cors());
 
 // Body parsing middleware
+app.use(helmet());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
+});
+app.use(limiter);
+
 
 // Basic logging
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
+
+const authRoutes = require('./routes/auth');
+const itemsRoutes = require('./routes/items');  
+const matchesRoutes = require('./routes/matches');
+
+app.use('/api/auth', authRoutes);
+app.use('/api/items', itemsRoutes);  
+app.use('/api/matches', matchesRoutes);
 
 // Database connection
 let db;

@@ -1,25 +1,24 @@
+// File: backend/src/routes/items.js - Routes untuk Found & Lost Items
 const express = require('express');
-const { body, param, query, validationResult } = require('express-validator');
 const multer = require('multer');
 const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-
-const { LostItem, FoundItem, User, Match } = require('../models');
+const fs = require('fs').promises;
+const { body, param, query, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
+const ItemService = require('../services/ItemService');
+const GoogleDriveService = require('../services/GoogleDriveService');
+const AIService = require('../services/AIService');
 const logger = require('../utils/logger');
-const { AIService } = require('../services/aiService');
-const { FileService } = require('../services/fileService');
-const { NotificationService } = require('../services/notificationService');
 
 const router = express.Router();
 
-// Multer configuration for image uploads
+// Configure multer for image uploads
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-    files: 5 // Maximum 5 files
+    fileSize: 5 * 1024 * 1024, // 5MB
+    files: 5 // Max 5 files
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
@@ -38,21 +37,21 @@ const foundItemValidation = [
     .withMessage('Item name must be between 2-100 characters'),
   body('description')
     .trim()
-    .isLength({ min: 10, max: 2000 })
-    .withMessage('Description must be between 10-2000 characters'),
+    .isLength({ min: 10, max: 500 })
+    .withMessage('Description must be between 10-500 characters'),
   body('category')
     .isIn(['Dompet/Tas', 'Elektronik', 'Kendaraan', 'Aksesoris', 'Dokumen', 'Alat Tulis', 'Pakaian', 'Lainnya'])
     .withMessage('Invalid category'),
   body('locationFound')
     .trim()
-    .isLength({ min: 2, max: 100 })
-    .withMessage('Location must be between 2-100 characters'),
+    .isLength({ min: 5, max: 200 })
+    .withMessage('Location must be between 5-200 characters'),
   body('foundDate')
     .isISO8601()
-    .withMessage('Valid date is required'),
+    .withMessage('Invalid date format'),
   body('foundTime')
-    .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-    .withMessage('Valid time format (HH:MM) is required')
+    .matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/)
+    .withMessage('Invalid time format (HH:MM:SS)')
 ];
 
 const lostItemValidation = [
@@ -62,654 +61,484 @@ const lostItemValidation = [
     .withMessage('Item name must be between 2-100 characters'),
   body('description')
     .trim()
-    .isLength({ min: 10, max: 2000 })
-    .withMessage('Description must be between 10-2000 characters'),
+    .isLength({ min: 10, max: 500 })
+    .withMessage('Description must be between 10-500 characters'),
   body('category')
-    .isIn(['Dompet/Tas', 'Elektronik', 'Kendaraan', 'Aksesoris', 'Dokumen', 'Alat Tulis', 'Pakaian', 'Lainnya'])
+    .isIn(['Dompet/Tas', 'Elektronik', 'Kartu Identitas', 'Kunci', 'Buku/ATK', 'Aksesoris', 'Pakaian', 'Lainnya'])
     .withMessage('Invalid category'),
   body('lastSeenLocation')
     .trim()
-    .isLength({ min: 2, max: 100 })
-    .withMessage('Location must be between 2-100 characters'),
+    .isLength({ min: 5, max: 200 })
+    .withMessage('Last seen location must be between 5-200 characters'),
   body('dateLost')
     .isISO8601()
-    .withMessage('Valid date is required'),
+    .withMessage('Invalid date format'),
   body('reward')
     .optional()
-    .isFloat({ min: 0 })
-    .withMessage('Reward must be a positive number')
+    .isNumeric()
+    .withMessage('Reward must be a number')
+    .custom(value => {
+      if (value < 0 || value > 500000) {
+        throw new Error('Reward must be between 0-500000');
+      }
+      return true;
+    })
 ];
 
 /**
- * @route   POST /api/items/found
- * @desc    Report found item
- * @access  Private
+ * POST /api/items/found
+ * Create new found item report
  */
-router.post('/found', auth, upload.array('images', 5), foundItemValidation, async (req, res) => {
-  try {
-    // Check validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation errors',
-        errors: errors.array()
-      });
-    }
-
-    // Check if images are provided (required for found items)
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'At least one image is required for found items',
-        code: 'NO_IMAGES'
-      });
-    }
-
-    const { itemName, description, category, locationFound, foundDate, foundTime } = req.body;
-
-    // Upload images to Google Drive
-    const imageUrls = [];
-    for (const file of req.files) {
-      try {
-        const imageUrl = await FileService.uploadImage(file, 'found');
-        imageUrls.push(imageUrl);
-      } catch (uploadError) {
-        logger.error('Image upload error:', uploadError);
-        return res.status(500).json({
+router.post('/found', 
+  auth,
+  upload.array('images', 5),
+  foundItemValidation,
+  async (req, res) => {
+    try {
+      // Validate request
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
           success: false,
-          message: 'Failed to upload images',
-          code: 'IMAGE_UPLOAD_ERROR'
+          message: 'Validation errors',
+          errors: errors.array()
         });
       }
-    }
 
-    // Create found item
-    const foundItem = await FoundItem.create({
-      itemName: itemName.trim(),
-      description: description.trim(),
-      category,
-      locationFound: locationFound.trim(),
-      foundDate,
-      foundTime,
-      images: imageUrls,
-      userId: req.userId,
-      status: 'available'
-    });
-
-    // Process with AI for instant matching
-    try {
-      const aiResponse = await AIService.processFoundItem({
-        item_id: foundItem.id,
-        item_name: foundItem.itemName,
-        description: foundItem.description,
-        category: foundItem.category,
-        image_url: imageUrls[0], // Use first image for processing
-        collection: 'found_items',
-        threshold: 0.75
-      });
-
-      // Update AI processed status
-      await foundItem.update({ aiProcessed: true });
-
-      // Process matches if found
-      if (aiResponse.matches && aiResponse.matches.length > 0) {
-        await processAIMatches(foundItem, aiResponse.matches);
+      // Check if at least one image is uploaded
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'At least one image is required for found items'
+        });
       }
 
-      logger.info(`Found item processed: ${foundItem.id}, ${aiResponse.matches.length} matches found`);
+      const { itemName, description, category, locationFound, foundDate, foundTime } = req.body;
+      const userId = req.user.id;
 
-    } catch (aiError) {
-      logger.error('AI processing error for found item:', aiError);
-      // Continue without AI processing - item is still created
-    }
+      logger.info(`Creating found item report for user ${userId}: ${itemName}`);
 
-    // Get created item with user info
-    const createdItem = await FoundItem.findByPk(foundItem.id, {
-      include: [{
-        model: User,
-        as: 'finder',
-        attributes: ['id', 'fullName', 'email']
-      }]
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Found item reported successfully',
-      data: {
-        item: createdItem
-      }
-    });
-
-  } catch (error) {
-    logger.error('Create found item error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to report found item',
-      code: 'CREATE_FOUND_ITEM_ERROR'
-    });
-  }
-});
-
-/**
- * @route   POST /api/items/lost
- * @desc    Report lost item
- * @access  Private
- */
-router.post('/lost', auth, upload.array('images', 3), lostItemValidation, async (req, res) => {
-  try {
-    // Check validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation errors',
-        errors: errors.array()
-      });
-    }
-
-    const { itemName, description, category, lastSeenLocation, dateLost, reward = 0 } = req.body;
-
-    // Upload images if provided (optional for lost items)
-    const imageUrls = [];
-    if (req.files && req.files.length > 0) {
+      // Upload images to Google Drive
+      const imageUrls = [];
       for (const file of req.files) {
         try {
-          const imageUrl = await FileService.uploadImage(file, 'lost');
+          const imageUrl = await GoogleDriveService.uploadImage(file, 'found_items');
           imageUrls.push(imageUrl);
+          logger.info(`Image uploaded successfully: ${imageUrl}`);
         } catch (uploadError) {
-          logger.error('Image upload error:', uploadError);
-          return res.status(500).json({
-            success: false,
-            message: 'Failed to upload images',
-            code: 'IMAGE_UPLOAD_ERROR'
-          });
+          logger.error(`Failed to upload image: ${uploadError.message}`);
+          // Continue with other images instead of failing completely
         }
       }
-    }
 
-    // Create lost item
-    const lostItem = await LostItem.create({
-      itemName: itemName.trim(),
-      description: description.trim(),
-      category,
-      lastSeenLocation: lastSeenLocation.trim(),
-      dateLost,
-      reward: parseFloat(reward),
-      images: imageUrls,
-      userId: req.userId,
-      status: 'active'
-    });
-
-    // Process with AI if we have image or sufficient description
-    if (imageUrls.length > 0 || description.length > 50) {
-      try {
-        const aiResponse = await AIService.processLostItem({
-          item_id: lostItem.id,
-          item_name: lostItem.itemName,
-          description: lostItem.description,
-          category: lostItem.category,
-          image_url: imageUrls[0] || null,
-          collection: 'lost_items',
-          threshold: 0.75
+      if (imageUrls.length === 0) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to upload images. Please try again.'
         });
+      }
 
-        // Update AI processed status
-        await lostItem.update({ aiProcessed: true });
+      // Create found item in database
+      const foundItemData = {
+        itemName: itemName.trim(),
+        description: description.trim(),
+        category,
+        locationFound: locationFound.trim(),
+        foundDate,
+        foundTime,
+        images: imageUrls,
+        userId,
+        status: 'available'
+      };
 
-        logger.info(`Lost item processed: ${lostItem.id}, AI embeddings generated`);
+      const foundItem = await ItemService.createFoundItem(foundItemData);
+      logger.info(`Found item created with ID: ${foundItem.id}`);
 
+      // Trigger AI matching in background
+      try {
+        const aiResponse = await AIService.processFoundItem(foundItem);
+        logger.info(`AI processing initiated for found item ${foundItem.id}`);
+        
+        // Update matches count if available
+        if (aiResponse.matchesCount) {
+          foundItem.matchesCount = aiResponse.matchesCount;
+        }
       } catch (aiError) {
-        logger.error('AI processing error for lost item:', aiError);
-        // Continue without AI processing
+        logger.warn(`AI processing failed for found item ${foundItem.id}: ${aiError.message}`);
+        // Don't fail the entire request if AI processing fails
       }
+
+      res.status(201).json({
+        success: true,
+        message: 'Found item report created successfully',
+        data: {
+          id: foundItem.id,
+          itemName: foundItem.itemName,
+          category: foundItem.category,
+          locationFound: foundItem.locationFound,
+          foundDate: foundItem.foundDate,
+          matchesCount: foundItem.matchesCount || 0,
+          status: foundItem.status,
+          createdAt: foundItem.createdAt
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Error creating found item: ${error.message}`);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to create found item report',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
-
-    // Get created item with user info
-    const createdItem = await LostItem.findByPk(lostItem.id, {
-      include: [{
-        model: User,
-        as: 'owner',
-        attributes: ['id', 'fullName', 'email']
-      }]
-    });
-
-    res.status(201).json({
-      success: true,
-      message: 'Lost item reported successfully',
-      data: {
-        item: createdItem
-      }
-    });
-
-  } catch (error) {
-    logger.error('Create lost item error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to report lost item',
-      code: 'CREATE_LOST_ITEM_ERROR'
-    });
   }
-});
+);
 
 /**
- * @route   GET /api/items/my
- * @desc    Get user's items (lost and found)
- * @access  Private
+ * POST /api/items/lost
+ * Create new lost item report
  */
-router.get('/my', auth, [
-  query('type').optional().isIn(['lost', 'found', 'all']).withMessage('Invalid type'),
-  query('status').optional().withMessage('Invalid status'),
-  query('page').optional().isInt({ min: 1 }).withMessage('Page must be positive integer'),
-  query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1-50')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
+router.post('/lost',
+  auth,
+  upload.array('images', 5),
+  lostItemValidation,
+  async (req, res) => {
+    try {
+      // Validate request
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation errors',
+          errors: errors.array()
+        });
+      }
+
+      const { itemName, description, category, lastSeenLocation, dateLost, reward = 0 } = req.body;
+      const userId = req.user.id;
+
+      logger.info(`Creating lost item report for user ${userId}: ${itemName}`);
+
+      // Upload images to Google Drive (optional for lost items)
+      const imageUrls = [];
+      if (req.files && req.files.length > 0) {
+        for (const file of req.files) {
+          try {
+            const imageUrl = await GoogleDriveService.uploadImage(file, 'lost_items');
+            imageUrls.push(imageUrl);
+            logger.info(`Image uploaded successfully: ${imageUrl}`);
+          } catch (uploadError) {
+            logger.error(`Failed to upload image: ${uploadError.message}`);
+            // Continue with other images
+          }
+        }
+      }
+
+      // Create lost item in database
+      const lostItemData = {
+        itemName: itemName.trim(),
+        description: description.trim(),
+        category,
+        lastSeenLocation: lastSeenLocation.trim(),
+        dateLost,
+        reward: parseFloat(reward),
+        images: imageUrls,
+        userId,
+        status: 'active'
+      };
+
+      const lostItem = await ItemService.createLostItem(lostItemData);
+      logger.info(`Lost item created with ID: ${lostItem.id}`);
+
+      // Trigger AI matching in background
+      try {
+        const aiResponse = await AIService.processLostItem(lostItem);
+        logger.info(`AI processing initiated for lost item ${lostItem.id}`);
+        
+        // Update matches count if available
+        if (aiResponse.matchesCount) {
+          lostItem.matchesCount = aiResponse.matchesCount;
+        }
+      } catch (aiError) {
+        logger.warn(`AI processing failed for lost item ${lostItem.id}: ${aiError.message}`);
+        // Don't fail the entire request if AI processing fails
+      }
+
+      res.status(201).json({
+        success: true,
+        message: 'Lost item report created successfully',
+        data: {
+          id: lostItem.id,
+          itemName: lostItem.itemName,
+          category: lostItem.category,
+          lastSeenLocation: lostItem.lastSeenLocation,
+          dateLost: lostItem.dateLost,
+          reward: lostItem.reward,
+          matchesCount: lostItem.matchesCount || 0,
+          status: lostItem.status,
+          createdAt: lostItem.createdAt
+        }
+      });
+
+    } catch (error) {
+      logger.error(`Error creating lost item: ${error.message}`);
+      res.status(500).json({
         success: false,
-        message: 'Validation errors',
-        errors: errors.array()
+        message: 'Failed to create lost item report',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-
-    const { type = 'all', status, page = 1, limit = 20 } = req.query;
-    const offset = (page - 1) * limit;
-
-    const result = {
-      lostItems: [],
-      foundItems: [],
-      pagination: {}
-    };
-
-    // Get lost items
-    if (type === 'all' || type === 'lost') {
-      const lostWhere = { userId: req.userId };
-      if (status) lostWhere.status = status;
-
-      const { count: lostCount, rows: lostItems } = await LostItem.findAndCountAll({
-        where: lostWhere,
-        include: [{
-          model: Match,
-          as: 'matches',
-          include: [{
-            model: FoundItem,
-            as: 'foundItem',
-            attributes: ['id', 'itemName', 'locationFound', 'status']
-          }]
-        }],
-        order: [['createdAt', 'DESC']],
-        limit: parseInt(limit),
-        offset: parseInt(offset)
-      });
-
-      result.lostItems = lostItems;
-      result.pagination.lost = {
-        total: lostCount,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(lostCount / limit)
-      };
-    }
-
-    // Get found items
-    if (type === 'all' || type === 'found') {
-      const foundWhere = { userId: req.userId };
-      if (status) foundWhere.status = status;
-
-      const { count: foundCount, rows: foundItems } = await FoundItem.findAndCountAll({
-        where: foundWhere,
-        include: [{
-          model: Match,
-          as: 'matches',
-          include: [{
-            model: LostItem,
-            as: 'lostItem',
-            attributes: ['id', 'itemName', 'lastSeenLocation', 'status']
-          }]
-        }],
-        order: [['createdAt', 'DESC']],
-        limit: parseInt(limit),
-        offset: parseInt(offset)
-      });
-
-      result.foundItems = foundItems;
-      result.pagination.found = {
-        total: foundCount,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(foundCount / limit)
-      };
-    }
-
-    res.json({
-      success: true,
-      data: result
-    });
-
-  } catch (error) {
-    logger.error('Get my items error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch items',
-      code: 'GET_MY_ITEMS_ERROR'
-    });
   }
-});
+);
 
 /**
- * @route   GET /api/items/lost/:id/matches
- * @desc    Get matches for a lost item
- * @access  Private
+ * GET /api/items/my-items
+ * Get user's found and lost items
  */
-router.get('/lost/:id/matches', auth, [
-  param('id').isUUID().withMessage('Invalid item ID'),
-  query('page').optional().isInt({ min: 1 }).withMessage('Page must be positive integer'),
-  query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1-50')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation errors',
-        errors: errors.array()
+router.get('/my-items',
+  auth,
+  [
+    query('type').optional().isIn(['found', 'lost', 'all']).withMessage('Invalid type'),
+    query('status').optional().isIn(['active', 'available', 'pending_claim', 'claimed', 'resolved', 'expired']).withMessage('Invalid status'),
+    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
+    query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1-50')
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation errors',
+          errors: errors.array()
+        });
+      }
+
+      const userId = req.user.id;
+      const { type = 'all', status, page = 1, limit = 10 } = req.query;
+
+      logger.info(`Getting items for user ${userId}, type: ${type}, status: ${status}`);
+
+      const result = await ItemService.getUserItems(userId, {
+        type,
+        status,
+        page: parseInt(page),
+        limit: parseInt(limit)
       });
-    }
 
-    const { id } = req.params;
-    const { page = 1, limit = 10 } = req.query;
-    const offset = (page - 1) * limit;
-
-    // Verify ownership
-    const lostItem = await LostItem.findOne({
-      where: { id, userId: req.userId }
-    });
-
-    if (!lostItem) {
-      return res.status(404).json({
-        success: false,
-        message: 'Lost item not found or access denied',
-        code: 'ITEM_NOT_FOUND'
-      });
-    }
-
-    // Get matches
-    const { count, rows: matches } = await Match.findAndCountAll({
-      where: { lostItemId: id },
-      include: [{
-        model: FoundItem,
-        as: 'foundItem',
-        include: [{
-          model: User,
-          as: 'finder',
-          attributes: ['id', 'fullName']
-        }]
-      }],
-      order: [['similarity', 'DESC'], ['detectedAt', 'DESC']],
-      limit: parseInt(limit),
-      offset: parseInt(offset)
-    });
-
-    res.json({
-      success: true,
-      data: {
-        matches,
+      res.json({
+        success: true,
+        data: result.items,
         pagination: {
-          total: count,
           page: parseInt(page),
           limit: parseInt(limit),
-          totalPages: Math.ceil(count / limit)
-        }
-      }
-    });
-
-  } catch (error) {
-    logger.error('Get matches error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch matches',
-      code: 'GET_MATCHES_ERROR'
-    });
-  }
-});
-
-/**
- * @route   GET /api/items/:type/:id
- * @desc    Get item details
- * @access  Private
- */
-router.get('/:type/:id', auth, [
-  param('type').isIn(['lost', 'found']).withMessage('Invalid item type'),
-  param('id').isUUID().withMessage('Invalid item ID')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation errors',
-        errors: errors.array()
-      });
-    }
-
-    const { type, id } = req.params;
-    const Model = type === 'lost' ? LostItem : FoundItem;
-    const userAs = type === 'lost' ? 'owner' : 'finder';
-
-    const item = await Model.findByPk(id, {
-      include: [{
-        model: User,
-        as: userAs,
-        attributes: ['id', 'fullName', 'email', 'whatsappNumber']
-      }]
-    });
-
-    if (!item) {
-      return res.status(404).json({
-        success: false,
-        message: `${type.charAt(0).toUpperCase() + type.slice(1)} item not found`,
-        code: 'ITEM_NOT_FOUND'
-      });
-    }
-
-    // Hide sensitive info if not owner
-    if (item.userId !== req.userId) {
-      item[userAs].whatsappNumber = undefined;
-      item[userAs].email = undefined;
-    }
-
-    res.json({
-      success: true,
-      data: { item }
-    });
-
-  } catch (error) {
-    logger.error('Get item details error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch item details',
-      code: 'GET_ITEM_ERROR'
-    });
-  }
-});
-
-/**
- * @route   PUT /api/items/:type/:id/status
- * @desc    Update item status
- * @access  Private
- */
-router.put('/:type/:id/status', auth, [
-  param('type').isIn(['lost', 'found']).withMessage('Invalid item type'),
-  param('id').isUUID().withMessage('Invalid item ID'),
-  body('status').notEmpty().withMessage('Status is required')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation errors',
-        errors: errors.array()
-      });
-    }
-
-    const { type, id } = req.params;
-    const { status } = req.body;
-    const Model = type === 'lost' ? LostItem : FoundItem;
-
-    // Validate status values
-    const validStatuses = {
-      lost: ['active', 'has_matches', 'resolved', 'expired'],
-      found: ['available', 'pending_claim', 'claimed', 'expired']
-    };
-
-    if (!validStatuses[type].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid status for ${type} item`,
-        code: 'INVALID_STATUS'
-      });
-    }
-
-    // Find and verify ownership
-    const item = await Model.findOne({
-      where: { id, userId: req.userId }
-    });
-
-    if (!item) {
-      return res.status(404).json({
-        success: false,
-        message: `${type.charAt(0).toUpperCase() + type.slice(1)} item not found or access denied`,
-        code: 'ITEM_NOT_FOUND'
-      });
-    }
-
-    // Update status
-    await item.update({ status });
-
-    logger.info(`${type} item status updated: ${id} -> ${status}`);
-
-    res.json({
-      success: true,
-      message: 'Item status updated successfully',
-      data: { item }
-    });
-
-  } catch (error) {
-    logger.error('Update item status error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update item status',
-      code: 'UPDATE_STATUS_ERROR'
-    });
-  }
-});
-
-/**
- * @route   DELETE /api/items/:type/:id
- * @desc    Delete item (soft delete by setting status to expired)
- * @access  Private
- */
-router.delete('/:type/:id', auth, [
-  param('type').isIn(['lost', 'found']).withMessage('Invalid item type'),
-  param('id').isUUID().withMessage('Invalid item ID')
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation errors',
-        errors: errors.array()
-      });
-    }
-
-    const { type, id } = req.params;
-    const Model = type === 'lost' ? LostItem : FoundItem;
-
-    // Find and verify ownership
-    const item = await Model.findOne({
-      where: { id, userId: req.userId }
-    });
-
-    if (!item) {
-      return res.status(404).json({
-        success: false,
-        message: `${type.charAt(0).toUpperCase() + type.slice(1)} item not found or access denied`,
-        code: 'ITEM_NOT_FOUND'
-      });
-    }
-
-    // Soft delete by setting status to expired
-    await item.update({ status: 'expired' });
-
-    logger.info(`${type} item deleted: ${id}`);
-
-    res.json({
-      success: true,
-      message: 'Item deleted successfully'
-    });
-
-  } catch (error) {
-    logger.error('Delete item error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete item',
-      code: 'DELETE_ITEM_ERROR'
-    });
-  }
-});
-
-// Helper function to process AI matches
-async function processAIMatches(foundItem, matches) {
-  try {
-    for (const match of matches) {
-      // Check if match already exists
-      const existingMatch = await Match.findOne({
-        where: {
-          lostItemId: match.item_id,
-          foundItemId: foundItem.id
+          total: result.total,
+          totalPages: Math.ceil(result.total / parseInt(limit))
         }
       });
 
-      if (!existingMatch) {
-        // Create new match
-        const newMatch = await Match.create({
-          lostItemId: match.item_id,
-          foundItemId: foundItem.id,
-          similarity: match.similarity_score,
-          matchType: match.match_type || 'hybrid',
-          status: 'pending',
-          detectedAt: new Date()
+    } catch (error) {
+      logger.error(`Error getting user items: ${error.message}`);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get items',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/items/:id
+ * Get specific item details
+ */
+router.get('/:id',
+  auth,
+  [
+    param('id').isUUID().withMessage('Invalid item ID'),
+    query('type').isIn(['found', 'lost']).withMessage('Type is required (found/lost)')
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation errors',
+          errors: errors.array()
         });
-
-        // Send notification to lost item owner
-        const lostItem = await LostItem.findByPk(match.item_id, {
-          include: [{
-            model: User,
-            as: 'owner',
-            attributes: ['id', 'whatsappNumber', 'notificationSettings']
-          }]
-        });
-
-        if (lostItem && lostItem.owner) {
-          await NotificationService.sendMatchFoundNotification(
-            lostItem.owner,
-            foundItem,
-            newMatch
-          );
-        }
-
-        // Update lost item status
-        await lostItem.update({ status: 'has_matches', lastMatchedAt: new Date() });
-
-        logger.info(`Match created: ${newMatch.id} (${match.similarity_score * 100}% similarity)`);
       }
+
+      const { id } = req.params;
+      const { type } = req.query;
+      const userId = req.user.id;
+
+      const item = await ItemService.getItemById(id, type, userId);
+
+      if (!item) {
+        return res.status(404).json({
+          success: false,
+          message: 'Item not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        data: item
+      });
+
+    } catch (error) {
+      logger.error(`Error getting item: ${error.message}`);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to get item',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
     }
-  } catch (error) {
-    logger.error('Process AI matches error:', error);
   }
-}
+);
+
+/**
+ * PUT /api/items/:id/status
+ * Update item status
+ */
+router.put('/:id/status',
+  auth,
+  [
+    param('id').isUUID().withMessage('Invalid item ID'),
+    body('type').isIn(['found', 'lost']).withMessage('Type is required (found/lost)'),
+    body('status').custom((value, { req }) => {
+      const validStatuses = {
+        found: ['available', 'pending_claim', 'claimed', 'expired'],
+        lost: ['active', 'has_matches', 'resolved', 'expired']
+      };
+      
+      if (!validStatuses[req.body.type].includes(value)) {
+        throw new Error(`Invalid status for ${req.body.type} item`);
+      }
+      return true;
+    })
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation errors',
+          errors: errors.array()
+        });
+      }
+
+      const { id } = req.params;
+      const { type, status } = req.body;
+      const userId = req.user.id;
+
+      const updated = await ItemService.updateItemStatus(id, type, status, userId);
+
+      if (!updated) {
+        return res.status(404).json({
+          success: false,
+          message: 'Item not found or unauthorized'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Item status updated successfully'
+      });
+
+    } catch (error) {
+      logger.error(`Error updating item status: ${error.message}`);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update item status',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+);
+
+/**
+ * DELETE /api/items/:id
+ * Delete item (soft delete)
+ */
+router.delete('/:id',
+  auth,
+  [
+    param('id').isUUID().withMessage('Invalid item ID'),
+    query('type').isIn(['found', 'lost']).withMessage('Type is required (found/lost)')
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation errors',
+          errors: errors.array()
+        });
+      }
+
+      const { id } = req.params;
+      const { type } = req.query;
+      const userId = req.user.id;
+
+      const deleted = await ItemService.deleteItem(id, type, userId);
+
+      if (!deleted) {
+        return res.status(404).json({
+          success: false,
+          message: 'Item not found or unauthorized'
+        });
+      }
+
+      res.json({
+        success: true,
+        message: 'Item deleted successfully'
+      });
+
+    } catch (error) {
+      logger.error(`Error deleting item: ${error.message}`);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete item',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+);
+
+// Error handling middleware
+router.use((error, req, res, next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({
+        success: false,
+        message: 'File too large. Maximum size is 5MB per file.'
+      });
+    }
+    if (error.code === 'LIMIT_FILE_COUNT') {
+      return res.status(400).json({
+        success: false,
+        message: 'Too many files. Maximum is 5 files.'
+      });
+    }
+  }
+
+  if (error.message === 'Only image files are allowed') {
+    return res.status(400).json({
+      success: false,
+      message: 'Only image files (JPG, PNG, etc.) are allowed.'
+    });
+  }
+
+  logger.error(`Items route error: ${error.message}`);
+  res.status(500).json({
+    success: false,
+    message: 'Internal server error',
+    error: process.env.NODE_ENV === 'development' ? error.message : undefined
+  });
+});
 
 module.exports = router;
