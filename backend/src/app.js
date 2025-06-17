@@ -44,13 +44,13 @@ app.use((req, res, next) => {
   next();
 });
 
-const authRoutes = require('./routes/auth');
-const itemsRoutes = require('./routes/items');  
-const matchesRoutes = require('./routes/matches');
+// const authRoutes = require('./routes/auth');
+// const itemsRoutes = require('./routes/items');  
+// const matchesRoutes = require('./routes/matches');
 
-app.use('/api/auth', authRoutes);
-app.use('/api/items', itemsRoutes);  
-app.use('/api/matches', matchesRoutes);
+// app.use('/api/auth', authRoutes);
+// app.use('/api/items', itemsRoutes);  
+// app.use('/api/matches', matchesRoutes);
 
 // Database connection
 let db;

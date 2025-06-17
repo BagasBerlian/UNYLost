@@ -1,5 +1,5 @@
 const { Notification } = require("../models");
-const { WhatsAppService } = require("./whatsappService");
+const { WhatsAppService } = require("./WhatsappService");
 const logger = require("../utils/logger");
 
 class NotificationService {

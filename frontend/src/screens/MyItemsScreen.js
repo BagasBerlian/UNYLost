@@ -1,144 +1,330 @@
 // File: frontend/src/screens/MyItemsScreen.js
-import React, { useState, useEffect } from "react";
+// Update minimal untuk membaca data berdasarkan user login
+
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
+  Alert,
   RefreshControl,
-  Dimensions,
+  StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
-import BottomNavigation from "../components/BottomNavigation";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+import { API_CONFIG } from "../config/api";
+import { debugAsyncStorage } from "../utils/DebugStorage"; // Import debug helper
 
-const { width } = Dimensions.get("window");
-
-export default function MyItemsScreen() {
-  const navigation = useNavigation();
-  const [activeTab, setActiveTab] = useState("found"); // found, lost, claims
+const MyItemsScreen = ({ navigation }) => {
+  const [activeTab, setActiveTab] = useState("found");
+  const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
   const [items, setItems] = useState({
     found: [],
     lost: [],
     claims: [],
   });
 
-  useEffect(() => {
-    loadUserItems();
-  }, []);
-
-  const loadUserItems = async () => {
-    try {
-      const token = await AsyncStorage.getItem("userToken");
-
-      // TODO: Implement API calls to load user items
-      console.log("Loading user items...");
-
-      // Mock data for now
-      setItems({
-        found: [
-          {
-            id: 1,
-            name: "Dompet Hitam",
-            matches: 2,
-            time: "1 minggu yang lalu",
-          },
-          { id: 2, name: "Buku Catatan", matches: 1, time: "3 hari yang lalu" },
-          { id: 3, name: "Kacamata Baca", matches: 0, time: "5 jam yang lalu" },
-        ],
-        lost: [
-          {
-            id: 1,
-            name: "Kunci Motor",
-            matches: 1,
-            time: "1 minggu yang lalu",
-          },
-          {
-            id: 2,
-            name: "PowerBank 10000 Mah",
-            matches: 0,
-            time: "5 jam yang lalu",
-          },
-        ],
-        claims: [
-          {
-            id: 1,
-            name: "Laptop Asus",
-            status: "approved",
-            time: "5 hari yang lalu",
-          },
-        ],
-      });
-    } catch (error) {
-      console.error("Failed to load items:", error);
-    }
-  };
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await loadUserItems();
-    setIsRefreshing(false);
-  };
-
+  // Tab configuration berdasarkan UI mockup
   const tabs = [
     { id: "found", label: "Temuan", count: items.found.length },
     { id: "lost", label: "Hilang", count: items.lost.length },
     { id: "claims", label: "Klaim", count: items.claims.length },
   ];
 
-  const ItemCard = ({ item, type }) => (
-    <View style={styles.itemCard}>
-      <View style={styles.itemImagePlaceholder}>
-        <Text style={styles.itemImageText}>
-          Foto{"\n"}
-          {item.name.split(" ")[0]}
-        </Text>
-      </View>
+  // Get user data dari AsyncStorage
+  const getUserData = async () => {
+    try {
+      // Cek berbagai kemungkinan key yang digunakan untuk menyimpan user data
+      const email =
+        (await AsyncStorage.getItem("userEmail")) ||
+        (await AsyncStorage.getItem("email")) ||
+        (await AsyncStorage.getItem("user_email"));
 
-      <View style={styles.itemContent}>
-        <Text style={styles.itemName}>{item.name}</Text>
-        <Text style={styles.itemTime}>{item.time}</Text>
+      if (email) {
+        console.log("Found user email:", email);
+        setUserEmail(email);
+        return email;
+      }
 
-        {type === "claims" ? (
-          <View
-            style={[
-              styles.statusBadge,
-              item.status === "approved"
-                ? styles.approvedBadge
-                : styles.pendingBadge,
-            ]}
-          >
-            <Ionicons
-              name={item.status === "approved" ? "checkmark-circle" : "time"}
-              size={14}
-              color="white"
-            />
-            <Text style={styles.statusText}>
-              {item.status === "approved" ? "Approved" : "Pending"}
-            </Text>
-          </View>
-        ) : item.matches > 0 ? (
-          <TouchableOpacity style={styles.matchesBadge}>
-            <Ionicons name="eye" size={14} color="#3b82f6" />
-            <Text style={styles.matchesText}>{item.matches} Matches</Text>
-            <Text style={styles.viewLink}>Lihat matches →</Text>
-          </TouchableOpacity>
-        ) : (
-          <Text style={styles.noMatches}>✗ Belum ada match</Text>
-        )}
-      </View>
-    </View>
+      // Jika email tidak ada, coba ambil dari user data object
+      const userData = await AsyncStorage.getItem("userData");
+      if (userData) {
+        const user = JSON.parse(userData);
+        if (user.email) {
+          console.log("Found email from userData:", user.email);
+          setUserEmail(user.email);
+          return user.email;
+        }
+      }
+
+      throw new Error("Email not found in AsyncStorage");
+    } catch (error) {
+      console.error("Error getting user email:", error);
+      Alert.alert(
+        "Session Expired",
+        "Silakan login kembali untuk melanjutkan",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              // Clear all stored data
+              AsyncStorage.multiRemove([
+                "userToken",
+                "userEmail",
+                "userData",
+                "email",
+              ]);
+              // Navigate back instead of to Login (jika Login route tidak ada)
+              navigation.goBack();
+            },
+          },
+        ]
+      );
+      return null;
+    }
+  };
+
+  // Fetch user items dari backend berdasarkan email login
+  const fetchUserItems = async (email, type = "all") => {
+    try {
+      const token = await AsyncStorage.getItem("userToken");
+
+      if (!token) {
+        throw new Error("Token not found");
+      }
+
+      // Endpoint sesuai backend route yang sudah ada
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/items/my-items?type=${type}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Token expired");
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch items");
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error fetching user items:", error);
+
+      if (error.message === "Token expired") {
+        Alert.alert("Sesi Berakhir", "Silakan login kembali", [
+          {
+            text: "OK",
+            onPress: () => {
+              // Clear stored data
+              AsyncStorage.multiRemove(["userToken", "userEmail", "userData"]);
+              // Go back instead of navigating to Login
+              navigation.goBack();
+            },
+          },
+        ]);
+      } else {
+        Alert.alert("Error", "Gagal mengambil data item");
+      }
+
+      throw error;
+    }
+  };
+
+  // Load semua data user
+  const loadUserItems = async (showLoading = true) => {
+    try {
+      if (showLoading) setIsLoading(true);
+
+      const email = await getUserData();
+      if (!email) return;
+
+      // Fetch data untuk ketiga tab
+      const [foundResponse, lostResponse, claimsResponse] =
+        await Promise.allSettled([
+          fetchUserItems(email, "found"),
+          fetchUserItems(email, "lost"),
+          fetchUserItems(email, "claims"),
+        ]);
+
+      // Update state dengan data yang berhasil di-fetch
+      setItems({
+        found:
+          foundResponse.status === "fulfilled"
+            ? foundResponse.value.data || []
+            : [],
+        lost:
+          lostResponse.status === "fulfilled"
+            ? lostResponse.value.data || []
+            : [],
+        claims:
+          claimsResponse.status === "fulfilled"
+            ? claimsResponse.value.data || []
+            : [],
+      });
+    } catch (error) {
+      console.error("Error loading user items:", error);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  // Handle refresh
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true);
+    loadUserItems(false);
+  }, []);
+
+  // Handle item press
+  const handleItemPress = (item) => {
+    console.log("Item pressed:", item);
+    // Navigate ke detail item
+    // navigation.navigate('ItemDetail', { item });
+  };
+
+  // Load data ketika screen di-focus
+  useFocusEffect(
+    useCallback(() => {
+      // Debug AsyncStorage saat screen load
+      debugAsyncStorage();
+      loadUserItems();
+    }, [])
   );
 
+  // Render item card sederhana
+  const renderItemCard = (item, type) => (
+    <TouchableOpacity
+      key={item.id}
+      style={styles.itemCard}
+      onPress={() => handleItemPress(item)}
+    >
+      {/* Image placeholder atau actual image */}
+      <View style={styles.imageContainer}>
+        {item.images && item.images.length > 0 ? (
+          <Image
+            source={{ uri: item.images[0] }}
+            style={styles.itemImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.placeholderImage}>
+            <Text style={styles.placeholderText}>Foto {item.itemName}</Text>
+          </View>
+        )}
+      </View>
+
+      <TouchableOpacity
+        style={{
+          position: "absolute",
+          top: 100,
+          right: 20,
+          backgroundColor: "red",
+          padding: 10,
+        }}
+        onPress={() => debugAsyncStorage()}
+      >
+        <Text style={{ color: "white" }}>Debug Storage</Text>
+      </TouchableOpacity>
+
+      {/* Item details */}
+      <View style={styles.itemDetails}>
+        <Text style={styles.itemName}>{item.itemName}</Text>
+
+        {/* Time ago */}
+        <Text style={styles.timeAgo}>
+          {item.timeAgo || "1 minggu yang lalu"}
+        </Text>
+
+        {/* Status berdasarkan type */}
+        {type === "found" && item.matchCount > 0 && (
+          <View style={styles.statusContainer}>
+            <Ionicons name="people" size={16} color="#3b82f6" />
+            <Text style={styles.matchText}>{item.matchCount} Matches</Text>
+            <TouchableOpacity style={styles.actionButton}>
+              <Text style={styles.actionText}>Lihat matches</Text>
+              <Ionicons name="chevron-forward" size={16} color="#3b82f6" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {type === "lost" && item.claimCount > 0 && (
+          <View style={styles.statusContainer}>
+            <Ionicons name="warning" size={16} color="#f59e0b" />
+            <Text style={styles.claimText}>{item.claimCount} Klaim</Text>
+            <TouchableOpacity style={styles.actionButton}>
+              <Text style={styles.actionText}>Review Klaim</Text>
+              <Ionicons name="chevron-forward" size={16} color="#f59e0b" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {type === "claims" && (
+          <View style={styles.statusContainer}>
+            <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+            <Text style={styles.approvedText}>Approved</Text>
+            <TouchableOpacity style={styles.actionButton}>
+              <Text style={styles.actionText}>Review Barang</Text>
+              <Ionicons name="chevron-forward" size={16} color="#3b82f6" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* No status case */}
+        {type === "found" && (!item.matchCount || item.matchCount === 0) && (
+          <View style={styles.statusContainer}>
+            <Ionicons name="close-circle" size={16} color="#6b7280" />
+            <Text style={styles.noMatchText}>Belum ada match</Text>
+            <TouchableOpacity style={styles.actionButton}>
+              <Text style={styles.actionText}>Lihat matches</Text>
+              <Ionicons name="chevron-forward" size={16} color="#3b82f6" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {type === "lost" && (!item.claimCount || item.claimCount === 0) && (
+          <View style={styles.statusContainer}>
+            <Ionicons name="close-circle" size={16} color="#6b7280" />
+            <Text style={styles.noMatchText}>Belum ada klaim</Text>
+            <TouchableOpacity style={styles.actionButton}>
+              <Text style={styles.actionText}>Review Klaim</Text>
+              <Ionicons name="chevron-forward" size={16} color="#f59e0b" />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+
+  // Render content berdasarkan active tab
   const renderTabContent = () => {
     const currentItems = items[activeTab] || [];
 
+    if (isLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#3b82f6" />
+          <Text style={styles.loadingText}>Memuat data...</Text>
+        </View>
+      );
+    }
+
     if (currentItems.length === 0) {
       return (
-        <View style={styles.emptyState}>
+        <View style={styles.emptyContainer}>
           <Ionicons
             name={
               activeTab === "found"
@@ -169,10 +355,7 @@ export default function MyItemsScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {currentItems.map((item) => (
-          <ItemCard key={item.id} item={item} type={activeTab} />
-        ))}
-        <View style={styles.bottomPadding} />
+        {currentItems.map((item) => renderItemCard(item, activeTab))}
       </ScrollView>
     );
   };
@@ -192,123 +375,129 @@ export default function MyItemsScreen() {
 
       {/* Tabs */}
       <View style={styles.tabsContainer}>
-        <View style={styles.tabs}>
-          {tabs.map((tab) => (
-            <TouchableOpacity
-              key={tab.id}
-              style={[styles.tab, activeTab === tab.id && styles.activeTab]}
-              onPress={() => setActiveTab(tab.id)}
+        {tabs.map((tab) => (
+          <TouchableOpacity
+            key={tab.id}
+            style={[styles.tab, activeTab === tab.id && styles.activeTab]}
+            onPress={() => setActiveTab(tab.id)}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === tab.id && styles.activeTabText,
+              ]}
             >
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === tab.id && styles.activeTabText,
-                ]}
-              >
-                {tab.label}
-              </Text>
-              {tab.count > 0 && (
-                <View
-                  style={[
-                    styles.tabBadge,
-                    activeTab === tab.id && styles.activeTabBadge,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.tabBadgeText,
-                      activeTab === tab.id && styles.activeTabBadgeText,
-                    ]}
-                  >
-                    {tab.count}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
+              {tab.label}
+            </Text>
+            {tab.count > 0 && (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeText}>{tab.count}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
       </View>
 
       {/* Content */}
-      <View style={styles.content}>{renderTabContent()}</View>
-
-      {/* Bottom Navigation */}
-      <BottomNavigation />
+      {renderTabContent()}
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f8fafc",
   },
   header: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#3b82f6",
     paddingTop: 50,
     paddingBottom: 16,
     paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   backButton: {
-    marginRight: 16,
+    padding: 8,
   },
   headerTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
     color: "white",
-    fontSize: 18,
-    fontWeight: "600",
+    flex: 1,
+    textAlign: "center",
+    marginRight: 40, // Kompensasi untuk back button
   },
   tabsContainer: {
+    flexDirection: "row",
     backgroundColor: "white",
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
   },
-  tabs: {
-    flexDirection: "row",
-  },
   tab: {
     flex: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    alignItems: "center",
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "center",
-    position: "relative",
+    paddingVertical: 16,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
   },
   activeTab: {
-    borderBottomWidth: 2,
     borderBottomColor: "#3b82f6",
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 16,
+    fontWeight: "500",
     color: "#6b7280",
-    marginRight: 8,
   },
   activeTabText: {
     color: "#3b82f6",
     fontWeight: "600",
   },
   tabBadge: {
-    backgroundColor: "#e5e7eb",
+    backgroundColor: "#ef4444",
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 2,
+    marginLeft: 4,
     minWidth: 20,
     alignItems: "center",
   },
-  activeTabBadge: {
-    backgroundColor: "#dbeafe",
-  },
   tabBadgeText: {
     fontSize: 12,
-    color: "#6b7280",
+    fontWeight: "600",
+    color: "white",
   },
-  activeTabBadgeText: {
-    color: "#3b82f6",
-  },
-  content: {
+  loadingContainer: {
     flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 64,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#6b7280",
+    marginTop: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 64,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#6b7280",
+    textAlign: "center",
+    marginTop: 16,
   },
   itemsList: {
     flex: 1,
@@ -317,97 +506,91 @@ const styles = StyleSheet.create({
   itemCard: {
     backgroundColor: "white",
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    flexDirection: "row",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    marginBottom: 16,
     elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    overflow: "hidden",
   },
-  itemImagePlaceholder: {
-    width: 60,
-    height: 60,
-    backgroundColor: "#f3f4f6",
+  imageContainer: {
+    flexDirection: "row",
+    padding: 16,
+  },
+  itemImage: {
+    width: 80,
+    height: 80,
     borderRadius: 8,
+    backgroundColor: "#f1f5f9",
+  },
+  placeholderImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: "#f1f5f9",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
   },
-  itemImageText: {
+  placeholderText: {
     fontSize: 10,
     color: "#6b7280",
     textAlign: "center",
   },
-  itemContent: {
+  itemDetails: {
     flex: 1,
+    marginLeft: 16,
+    justifyContent: "center",
   },
   itemName: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
     color: "#1f2937",
     marginBottom: 4,
   },
-  itemTime: {
-    fontSize: 12,
-    color: "#9ca3af",
+  timeAgo: {
+    fontSize: 14,
+    color: "#6b7280",
     marginBottom: 8,
   },
-  matchesBadge: {
+  statusContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    marginBottom: 8,
   },
-  matchesText: {
-    fontSize: 12,
+  matchText: {
+    fontSize: 14,
     color: "#3b82f6",
-    fontWeight: "500",
+    fontWeight: "600",
+    marginLeft: 4,
   },
-  viewLink: {
-    fontSize: 12,
-    color: "#3b82f6",
-    marginLeft: 8,
+  claimText: {
+    fontSize: 14,
+    color: "#f59e0b",
+    fontWeight: "600",
+    marginLeft: 4,
   },
-  statusBadge: {
+  approvedText: {
+    fontSize: 14,
+    color: "#10b981",
+    fontWeight: "600",
+    marginLeft: 4,
+  },
+  noMatchText: {
+    fontSize: 14,
+    color: "#6b7280",
+    marginLeft: 4,
+  },
+  actionButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
-    alignSelf: "flex-start",
+    marginLeft: "auto",
   },
-  approvedBadge: {
-    backgroundColor: "#10b981",
-  },
-  pendingBadge: {
-    backgroundColor: "#f59e0b",
-  },
-  statusText: {
-    fontSize: 12,
-    color: "white",
-    fontWeight: "500",
-  },
-  noMatches: {
-    fontSize: 12,
-    color: "#9ca3af",
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: "#9ca3af",
-    marginTop: 16,
-  },
-  bottomPadding: {
-    height: 120,
+  actionText: {
+    fontSize: 14,
+    color: "#3b82f6",
+    marginRight: 4,
   },
 });
+
+export default MyItemsScreen;

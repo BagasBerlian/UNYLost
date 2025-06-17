@@ -1,4 +1,3 @@
-// File: backend/src/routes/items.js - Routes untuk Found & Lost Items
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
@@ -84,6 +83,8 @@ const lostItemValidation = [
       return true;
     })
 ];
+
+
 
 /**
  * POST /api/items/found
@@ -292,61 +293,157 @@ router.post('/lost',
 );
 
 /**
- * GET /api/items/my-items
- * Get user's found and lost items
+ * GET /api/items/my-items  
+ * Get user items berdasarkan email dari JWT token
  */
 router.get('/my-items',
-  auth,
-  [
-    query('type').optional().isIn(['found', 'lost', 'all']).withMessage('Invalid type'),
-    query('status').optional().isIn(['active', 'available', 'pending_claim', 'claimed', 'resolved', 'expired']).withMessage('Invalid status'),
-    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-    query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1-50')
-  ],
   async (req, res) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
+      // Extract token dari header
+      const authHeader = req.header('Authorization');
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({
           success: false,
-          message: 'Validation errors',
-          errors: errors.array()
+          message: 'No token provided'
         });
       }
 
-      const userId = req.user.id;
-      const { type = 'all', status, page = 1, limit = 10 } = req.query;
+      const token = authHeader.substring(7);
+      
+      // Verify token (sesuaikan dengan JWT secret Anda)
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'uny_lost_secret_key_2024');
+      
+      // Get user dari database berdasarkan decoded token
+      const [userRows] = await db.execute(
+        'SELECT id, firstName, lastName, email FROM users WHERE id = ? AND isActive = 1',
+        [decoded.userId]
+      );
 
-      logger.info(`Getting items for user ${userId}, type: ${type}, status: ${status}`);
+      if (userRows.length === 0) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
 
-      const result = await ItemService.getUserItems(userId, {
-        type,
-        status,
-        page: parseInt(page),
-        limit: parseInt(limit)
-      });
+      const user = userRows[0];
+      const { type = 'all' } = req.query;
+
+      console.log(`📱 Getting items for user: ${user.email}, type: ${type}`);
+
+      let responseData = [];
+
+      // Query found items
+      if (type === 'found' || type === 'all') {
+        const [foundRows] = await db.execute(`
+          SELECT 
+            fi.*,
+            COALESCE((SELECT COUNT(*) FROM matches m WHERE m.foundItemId = fi.id AND m.status = 'pending'), 0) as matchCount
+          FROM found_items fi
+          WHERE fi.userId = ? 
+          ORDER BY fi.createdAt DESC
+        `, [user.id]);
+
+        const foundItems = foundRows.map(item => ({
+          ...item,
+          images: item.images ? JSON.parse(item.images) : [],
+          timeAgo: getTimeAgo(item.createdAt),
+          type: 'found'
+        }));
+
+        if (type === 'found') {
+          responseData = foundItems;
+        } else {
+          responseData = [...responseData, ...foundItems];
+        }
+      }
+
+      // Query lost items  
+      if (type === 'lost' || type === 'all') {
+        const [lostRows] = await db.execute(`
+          SELECT 
+            li.*,
+            COALESCE((SELECT COUNT(*) FROM matches m WHERE m.lostItemId = li.id AND m.status = 'pending'), 0) as matchCount
+          FROM lost_items li
+          WHERE li.userId = ?
+          ORDER BY li.createdAt DESC
+        `, [user.id]);
+
+        const lostItems = lostRows.map(item => ({
+          ...item,
+          images: item.images ? JSON.parse(item.images) : [],
+          timeAgo: getTimeAgo(item.createdAt),
+          type: 'lost'
+        }));
+
+        if (type === 'lost') {
+          responseData = lostItems;
+        } else {
+          responseData = [...responseData, ...lostItems];
+        }
+      }
+
+      // Query claims
+      if (type === 'claims') {
+        const [claimRows] = await db.execute(`
+          SELECT 
+            c.*,
+            fi.itemName,
+            fi.images
+          FROM claims c
+          JOIN found_items fi ON c.foundItemId = fi.id
+          WHERE c.claimerId = ? AND c.status = 'approved'
+          ORDER BY c.createdAt DESC
+        `, [user.id]);
+
+        responseData = claimRows.map(claim => ({
+          ...claim,
+          images: claim.images ? JSON.parse(claim.images) : [],
+          timeAgo: getTimeAgo(claim.createdAt),
+          type: 'claims'
+        }));
+      }
+
+      console.log(`✅ Found ${responseData.length} items for user ${user.email}`);
 
       res.json({
         success: true,
-        data: result.items,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: result.total,
-          totalPages: Math.ceil(result.total / parseInt(limit))
+        message: 'Items retrieved successfully',
+        data: responseData,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: `${user.firstName} ${user.lastName}`
         }
       });
 
     } catch (error) {
-      logger.error(`Error getting user items: ${error.message}`);
+      console.error('❌ Error getting user items:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to get items',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
       });
     }
   }
 );
+
+// Helper function untuk time ago
+function getTimeAgo(dateString) {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffMs = now - date;
+  
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffWeeks = Math.floor(diffDays / 7);
+  
+  if (diffDays < 1) return 'Hari ini';
+  if (diffDays === 1) return '1 hari yang lalu';
+  if (diffDays < 7) return `${diffDays} hari yang lalu`;
+  if (diffWeeks === 1) return '1 minggu yang lalu';
+  return `${diffWeeks} minggu yang lalu`;
+}
 
 /**
  * GET /api/items/:id

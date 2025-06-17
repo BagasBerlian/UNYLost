@@ -4,7 +4,7 @@ const { Op } = require("sequelize");
 const { sequelize } = require("../config/database");
 const logger = require("../utils/logger");
 const emailService = require("./emailService");
-const whatsappService = require("./whatsappService");
+const whatsappService = require("./WhatsappService");
 
 // In-memory storage for verification codes (production should use Redis)
 const verificationCodes = new Map();

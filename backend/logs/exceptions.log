@@ -3199,3 +3199,146 @@
   service: 'uny-lost-backend',
   timestamp: '2025-06-17 20:09:25'
 }
+{
+  error: Error: Route.get() requires a callback function but got a [object Object]
+      at Route.<computed> [as get] (D:\Lets Code\Mobile App\UNYLost\backend\node_modules\express\lib\router\route.js:216:15)
+      at proto.<computed> [as get] (D:\Lets Code\Mobile App\UNYLost\backend\node_modules\express\lib\router\index.js:521:19)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\routes\auth.js:459:8)
+      at Module._compile (node:internal/modules/cjs/loader:1358:14)
+      at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)
+      at Module.load (node:internal/modules/cjs/loader:1208:32)
+      at Module._load (node:internal/modules/cjs/loader:1024:12)
+      at Module.require (node:internal/modules/cjs/loader:1233:19)
+      at require (node:internal/modules/helpers:179:18)
+      at Object.<anonymous> (D:\Lets Code\Mobile App\UNYLost\backend\src\app.js:47:20),
+  level: 'error',
+  message: 'uncaughtException: Route.get() requires a callback function but got a [object Object]\n' +
+    'Error: Route.get() requires a callback function but got a [object Object]\n' +
+    '    at Route.<computed> [as get] (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express\\lib\\router\\route.js:216:15)\n' +
+    '    at proto.<computed> [as get] (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express\\lib\\router\\index.js:521:19)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\auth.js:459:8)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:47:20)',
+  stack: 'Error: Route.get() requires a callback function but got a [object Object]\n' +
+    '    at Route.<computed> [as get] (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express\\lib\\router\\route.js:216:15)\n' +
+    '    at proto.<computed> [as get] (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express\\lib\\router\\index.js:521:19)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\auth.js:459:8)\n' +
+    '    at Module._compile (node:internal/modules/cjs/loader:1358:14)\n' +
+    '    at Module._extensions..js (node:internal/modules/cjs/loader:1416:10)\n' +
+    '    at Module.load (node:internal/modules/cjs/loader:1208:32)\n' +
+    '    at Module._load (node:internal/modules/cjs/loader:1024:12)\n' +
+    '    at Module.require (node:internal/modules/cjs/loader:1233:19)\n' +
+    '    at require (node:internal/modules/helpers:179:18)\n' +
+    '    at Object.<anonymous> (D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js:47:20)',
+  exception: true,
+  date: 'Wed Jun 18 2025 00:34:50 GMT+0700 (Western Indonesia Time)',
+  process: {
+    pid: 8004,
+    uid: null,
+    gid: null,
+    cwd: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend',
+    execPath: 'C:\\Program Files\\nodejs\\node.exe',
+    version: 'v20.16.0',
+    argv: [
+      'C:\\Program Files\\nodejs\\node.exe',
+      'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js'
+    ],
+    memoryUsage: {
+      rss: 68059136,
+      heapTotal: 38174720,
+      heapUsed: 26091480,
+      external: 3306797,
+      arrayBuffers: 66104
+    }
+  },
+  os: { loadavg: [ 0, 0, 0 ], uptime: 276917.078 },
+  trace: [
+    {
+      column: 15,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express\\lib\\router\\route.js',
+      function: 'Route.<computed> [as get]',
+      line: 216,
+      method: '<computed> [as get]',
+      native: false
+    },
+    {
+      column: 19,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\node_modules\\express\\lib\\router\\index.js',
+      function: 'proto.<computed> [as get]',
+      line: 521,
+      method: '<computed> [as get]',
+      native: false
+    },
+    {
+      column: 8,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\routes\\auth.js',
+      function: null,
+      line: 459,
+      method: null,
+      native: false
+    },
+    {
+      column: 14,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._compile',
+      line: 1358,
+      method: '_compile',
+      native: false
+    },
+    {
+      column: 10,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._extensions..js',
+      line: 1416,
+      method: '.js',
+      native: false
+    },
+    {
+      column: 32,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.load',
+      line: 1208,
+      method: 'load',
+      native: false
+    },
+    {
+      column: 12,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module._load',
+      line: 1024,
+      method: '_load',
+      native: false
+    },
+    {
+      column: 19,
+      file: 'node:internal/modules/cjs/loader',
+      function: 'Module.require',
+      line: 1233,
+      method: 'require',
+      native: false
+    },
+    {
+      column: 18,
+      file: 'node:internal/modules/helpers',
+      function: 'require',
+      line: 179,
+      method: null,
+      native: false
+    },
+    {
+      column: 20,
+      file: 'D:\\Lets Code\\Mobile App\\UNYLost\\backend\\src\\app.js',
+      function: null,
+      line: 47,
+      method: null,
+      native: false
+    }
+  ],
+  service: 'uny-lost-backend',
+  timestamp: '2025-06-18 00:34:50'
+}
