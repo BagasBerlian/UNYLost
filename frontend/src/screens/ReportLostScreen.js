@@ -1,4 +1,4 @@
-// File: frontend/src/screens/ReportLostScreen.js
+// File: frontend/src/screens/ReportLostScreen.js - FIXED
 import React, { useState } from "react";
 import {
   View,
@@ -11,8 +11,10 @@ import {
   Image,
   Dimensions,
   ActivityIndicator,
-  Slider,
 } from "react-native";
+// Perubahan dimulai di sini
+import Slider from "@react-native-community/slider"; // Memperbaiki impor Slider
+// Perubahan selesai
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";

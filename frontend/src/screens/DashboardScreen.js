@@ -1,4 +1,4 @@
-// File: frontend/src/screens/DashboardScreen.js - UPDATED WITH BOTTOM NAVIGATION
+// File: frontend/src/screens/DashboardScreen.js - FIXED
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -17,7 +17,7 @@ import { authAPI } from "../services/api";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import BottomNavigation from "../components/BottomNavigation";
 
-const { width, height } = Dimensions.get("window");
+const { width } = Dimensions.get("window");
 
 export default function DashboardScreen() {
   const navigation = useNavigation();
@@ -26,11 +26,13 @@ export default function DashboardScreen() {
   const [dashboardData, setDashboardData] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
+
+  // Initial state for stats, using 0 as default
   const [stats, setStats] = useState({
-    found: 3,
-    lost: 1,
-    matches: 2,
-    pending: 1,
+    found: 0,
+    lost: 0,
+    matches: 0,
+    pending: 0,
   });
 
   useEffect(() => {
@@ -49,12 +51,16 @@ export default function DashboardScreen() {
       console.log("📊 Loading dashboard data with token...");
       const response = await authAPI.getDashboard(token);
 
-      if (response.success) {
+      if (response.success && response.data.stats) {
         console.log("✅ Dashboard data loaded successfully");
         setDashboardData(response.data);
-        if (response.data.stats) {
-          setStats(response.data.stats);
-        }
+        // Correctly extract the total value from each stat object
+        setStats({
+          found: response.data.stats.foundItems?.total ?? 0,
+          lost: response.data.stats.lostItems?.total ?? 0,
+          matches: response.data.stats.matches?.total ?? 0,
+          pending: response.data.stats.claims?.total ?? 0, // Assuming 'claims' corresponds to 'pending'
+        });
       } else {
         console.error("❌ Failed to load dashboard data:", response.message);
         console.log(
@@ -113,7 +119,7 @@ export default function DashboardScreen() {
     },
   ];
 
-  // Stats cards
+  // Stats cards now directly use the numerical values from the stats state
   const statsCards = [
     {
       icon: "checkmark-circle",
