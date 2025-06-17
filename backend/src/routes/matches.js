@@ -1,442 +1,451 @@
-// File: backend/src/routes/matches.js - API Routes untuk Matches
+// File: backend/src/routes/matches.js
+// API Routes untuk Matches dan Claims Management
+
 const express = require('express');
 const { body, param, query, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
-const MatchService = require('../services/MatchService');
 const logger = require('../utils/logger');
+const db = require('../config/database');
 
 const router = express.Router();
 
 /**
- * GET /api/matches/my-matches
- * Get user's matches
+ * GET /api/matches/lost-item/:id
+ * Get matches untuk specific lost item
  */
-router.get('/my-matches',
-  auth,
-  [
-    query('status').optional().isIn(['pending', 'claimed', 'approved', 'rejected', 'expired']).withMessage('Invalid status'),
-    query('type').optional().isIn(['found', 'lost', 'all']).withMessage('Invalid type'),
-    query('page').optional().isInt({ min: 1 }).withMessage('Page must be a positive integer'),
-    query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1-50')
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation errors',
-          errors: errors.array()
-        });
-      }
-
-      const userId = req.user.id;
-      const { status, type = 'all', page = 1, limit = 10 } = req.query;
-
-      logger.info(`Getting matches for user ${userId}, type: ${type}, status: ${status}`);
-
-      const result = await MatchService.getUserMatches(userId, {
-        status,
-        type,
-        page: parseInt(page),
-        limit: parseInt(limit)
+router.get('/lost-item/:id', auth, [
+  param('id').isUUID().withMessage('Invalid lost item ID'),
+  query('threshold').optional().isFloat({ min: 0, max: 1 }).withMessage('Threshold must be between 0-1')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation errors',
+        errors: errors.array()
       });
+    }
 
-      res.json({
-        success: true,
-        data: result.matches,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: result.total,
-          totalPages: Math.ceil(result.total / parseInt(limit))
+    const { id: lostItemId } = req.params;
+    const { threshold = 0.6 } = req.query;
+    const userId = req.user.id;
+
+    // Verify user owns this lost item
+    const [ownerCheck] = await db.execute(
+      'SELECT id FROM lost_items WHERE id = ? AND userId = ?',
+      [lostItemId, userId]
+    );
+
+    if (ownerCheck.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lost item not found or unauthorized'
+      });
+    }
+
+    // Get matches untuk lost item ini
+    const [matchRows] = await db.execute(`
+      SELECT 
+        m.*,
+        fi.itemName as foundItemName,
+        fi.description as foundDescription,
+        fi.category as foundCategory,
+        fi.locationFound,
+        fi.foundDate,
+        fi.foundTime,
+        fi.images as foundImages,
+        fi.status as foundStatus,
+        u.firstName as finderFirstName,
+        u.lastName as finderLastName,
+        u.whatsappNumber as finderPhone,
+        u.email as finderEmail
+      FROM matches m
+      JOIN found_items fi ON m.foundItemId = fi.id
+      JOIN users u ON fi.userId = u.id
+      WHERE m.lostItemId = ? 
+      AND m.similarity >= ?
+      AND fi.status IN ('available', 'pending_claim')
+      ORDER BY m.similarity DESC, m.detectedAt DESC
+    `, [lostItemId, threshold]);
+
+    // Parse images dan format data
+    const matches = matchRows.map(match => ({
+      id: match.id,
+      foundItemId: match.foundItemId,
+      similarity: parseFloat(match.similarity),
+      matchType: match.matchType,
+      status: match.status,
+      detectedAt: match.detectedAt,
+      foundItem: {
+        id: match.foundItemId,
+        itemName: match.foundItemName,
+        description: match.foundDescription,
+        category: match.foundCategory,
+        locationFound: match.locationFound,
+        foundDate: match.foundDate,
+        foundTime: match.foundTime,
+        images: match.foundImages ? JSON.parse(match.foundImages) : [],
+        status: match.foundStatus,
+        finder: {
+          name: `${match.finderFirstName} ${match.finderLastName}`,
+          phone: match.finderPhone,
+          email: match.finderEmail
         }
-      });
+      },
+      confidence: getConfidenceLevel(parseFloat(match.similarity))
+    }));
 
-    } catch (error) {
-      logger.error(`Error getting user matches: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to get matches',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
+    logger.info(`Found ${matches.length} matches for lost item ${lostItemId}`);
+
+    res.json({
+      success: true,
+      data: matches,
+      totalMatches: matches.length,
+      threshold: parseFloat(threshold)
+    });
+
+  } catch (error) {
+    logger.error(`Error getting matches for lost item: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get matches',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
-);
+});
 
 /**
- * GET /api/matches/:id
- * Get specific match details
+ * GET /api/matches/found-item/:id  
+ * Get matches untuk specific found item
  */
-router.get('/:id',
-  auth,
-  [
-    param('id').isUUID().withMessage('Invalid match ID')
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation errors',
-          errors: errors.array()
-        });
-      }
-
-      const { id } = req.params;
-      const userId = req.user.id;
-
-      const match = await MatchService.getMatchDetail(id, userId);
-
-      if (!match) {
-        return res.status(404).json({
-          success: false,
-          message: 'Match not found or access denied'
-        });
-      }
-
-      res.json({
-        success: true,
-        data: match
-      });
-
-    } catch (error) {
-      logger.error(`Error getting match detail: ${error.message}`);
-      res.status(500).json({
+router.get('/found-item/:id', auth, [
+  param('id').isUUID().withMessage('Invalid found item ID'),
+  query('threshold').optional().isFloat({ min: 0, max: 1 }).withMessage('Threshold must be between 0-1')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
         success: false,
-        message: 'Failed to get match detail',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: 'Validation errors',
+        errors: errors.array()
       });
     }
-  }
-);
 
-/**
- * PUT /api/matches/:id/claim
- * Claim a match (by lost item owner)
- */
-router.put('/:id/claim',
-  auth,
-  [
-    param('id').isUUID().withMessage('Invalid match ID'),
-    body('message').optional().isLength({ max: 500 }).withMessage('Message too long (max 500 characters)')
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation errors',
-          errors: errors.array()
-        });
-      }
+    const { id: foundItemId } = req.params;
+    const { threshold = 0.6 } = req.query;
+    const userId = req.user.id;
 
-      const { id } = req.params;
-      const userId = req.user.id;
-      const { message } = req.body;
+    // Verify user owns this found item
+    const [ownerCheck] = await db.execute(
+      'SELECT id FROM found_items WHERE id = ? AND userId = ?',
+      [foundItemId, userId]
+    );
 
-      logger.info(`User ${userId} claiming match ${id}`);
-
-      const success = await MatchService.updateMatchStatus(id, 'claimed', userId);
-
-      if (!success) {
-        return res.status(404).json({
-          success: false,
-          message: 'Match not found or unauthorized'
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'Match claimed successfully. Waiting for finder approval.'
-      });
-
-    } catch (error) {
-      logger.error(`Error claiming match: ${error.message}`);
-      res.status(500).json({
+    if (ownerCheck.length === 0) {
+      return res.status(404).json({
         success: false,
-        message: 'Failed to claim match',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: 'Found item not found or unauthorized'
       });
     }
-  }
-);
 
-/**
- * PUT /api/matches/:id/approve
- * Approve a match claim (by found item owner)
- */
-router.put('/:id/approve',
-  auth,
-  [
-    param('id').isUUID().withMessage('Invalid match ID'),
-    body('message').optional().isLength({ max: 500 }).withMessage('Message too long (max 500 characters)')
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation errors',
-          errors: errors.array()
-        });
-      }
+    // Get matches untuk found item ini
+    const [matchRows] = await db.execute(`
+      SELECT 
+        m.*,
+        li.itemName as lostItemName,
+        li.description as lostDescription,
+        li.category as lostCategory,
+        li.lastSeenLocation,
+        li.dateLost,
+        li.reward,
+        li.images as lostImages,
+        li.status as lostStatus,
+        u.firstName as ownerFirstName,
+        u.lastName as ownerLastName,
+        u.whatsappNumber as ownerPhone,
+        u.email as ownerEmail
+      FROM matches m
+      JOIN lost_items li ON m.lostItemId = li.id
+      JOIN users u ON li.userId = u.id
+      WHERE m.foundItemId = ? 
+      AND m.similarity >= ?
+      AND li.status IN ('active', 'has_matches')
+      ORDER BY m.similarity DESC, m.detectedAt DESC
+    `, [foundItemId, threshold]);
 
-      const { id } = req.params;
-      const userId = req.user.id;
-      const { message } = req.body;
-
-      logger.info(`User ${userId} approving match ${id}`);
-
-      const success = await MatchService.updateMatchStatus(id, 'approved', userId);
-
-      if (!success) {
-        return res.status(404).json({
-          success: false,
-          message: 'Match not found or unauthorized'
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'Match approved successfully. Contact information shared.'
-      });
-
-    } catch (error) {
-      logger.error(`Error approving match: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to approve match',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  }
-);
-
-/**
- * PUT /api/matches/:id/reject
- * Reject a match claim
- */
-router.put('/:id/reject',
-  auth,
-  [
-    param('id').isUUID().withMessage('Invalid match ID'),
-    body('reason').optional().isLength({ max: 500 }).withMessage('Reason too long (max 500 characters)')
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation errors',
-          errors: errors.array()
-        });
-      }
-
-      const { id } = req.params;
-      const userId = req.user.id;
-      const { reason } = req.body;
-
-      logger.info(`User ${userId} rejecting match ${id}`);
-
-      const success = await MatchService.updateMatchStatus(id, 'rejected', userId);
-
-      if (!success) {
-        return res.status(404).json({
-          success: false,
-          message: 'Match not found or unauthorized'
-        });
-      }
-
-      res.json({
-        success: true,
-        message: 'Match rejected successfully.'
-      });
-
-    } catch (error) {
-      logger.error(`Error rejecting match: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to reject match',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  }
-);
-
-/**
- * POST /api/matches/ai-notification
- * Receive AI notifications (internal endpoint)
- */
-router.post('/ai-notification',
-  [
-    body('item_id').isUUID().withMessage('Invalid item ID'),
-    body('collection').isIn(['found_items', 'lost_items']).withMessage('Invalid collection'),
-    body('matches').isArray().withMessage('Matches must be an array'),
-    body('timestamp').isISO8601().withMessage('Invalid timestamp')
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation errors',
-          errors: errors.array()
-        });
-      }
-
-      logger.info(`Received AI notification for ${req.body.collection} item ${req.body.item_id}`);
-
-      const success = await MatchService.handleAINotification(req.body);
-
-      if (success) {
-        res.json({
-          success: true,
-          message: 'AI notification processed successfully'
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'Failed to process AI notification'
-        });
-      }
-
-    } catch (error) {
-      logger.error(`Error processing AI notification: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to process AI notification',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-  }
-);
-
-/**
- * GET /api/matches/trending
- * Get trending high-similarity matches
- */
-router.get('/trending',
-  auth,
-  [
-    query('limit').optional().isInt({ min: 1, max: 20 }).withMessage('Limit must be between 1-20'),
-    query('threshold').optional().isFloat({ min: 0.5, max: 1.0 }).withMessage('Threshold must be between 0.5-1.0')
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation errors',
-          errors: errors.array()
-        });
-      }
-
-      const { limit = 10, threshold = 0.8 } = req.query;
-
-      const trending = await MatchService.getTrendingMatches({
-        limit: parseInt(limit),
-        threshold: parseFloat(threshold)
-      });
-
-      res.json({
-        success: true,
-        data: trending,
-        meta: {
-          count: trending.length,
-          threshold: parseFloat(threshold)
+    // Parse images dan format data
+    const matches = matchRows.map(match => ({
+      id: match.id,
+      lostItemId: match.lostItemId,
+      similarity: parseFloat(match.similarity),
+      matchType: match.matchType,
+      status: match.status,
+      detectedAt: match.detectedAt,
+      lostItem: {
+        id: match.lostItemId,
+        itemName: match.lostItemName,
+        description: match.lostDescription,
+        category: match.lostCategory,
+        lastSeenLocation: match.lastSeenLocation,
+        dateLost: match.dateLost,
+        reward: match.reward,
+        images: match.lostImages ? JSON.parse(match.lostImages) : [],
+        status: match.lostStatus,
+        owner: {
+          name: `${match.ownerFirstName} ${match.ownerLastName}`,
+          phone: match.ownerPhone,
+          email: match.ownerEmail
         }
-      });
+      },
+      confidence: getConfidenceLevel(parseFloat(match.similarity))
+    }));
 
-    } catch (error) {
-      logger.error(`Error getting trending matches: ${error.message}`);
-      res.status(500).json({
+    logger.info(`Found ${matches.length} matches for found item ${foundItemId}`);
+
+    res.json({
+      success: true,
+      data: matches,
+      totalMatches: matches.length,
+      threshold: parseFloat(threshold)
+    });
+
+  } catch (error) {
+    logger.error(`Error getting matches for found item: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get matches',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+/**
+ * PUT /api/matches/:id/status
+ * Update match status (viewed, contacted, etc.)
+ */
+router.put('/:id/status', auth, [
+  param('id').isUUID().withMessage('Invalid match ID'),
+  body('status').isIn(['new', 'viewed', 'contacted', 'resolved', 'expired']).withMessage('Invalid status')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
         success: false,
-        message: 'Failed to get trending matches',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: 'Validation errors',
+        errors: errors.array()
       });
     }
+
+    const { id: matchId } = req.params;
+    const { status } = req.body;
+    const userId = req.user.id;
+
+    // Verify user has access to this match
+    const [matchCheck] = await db.execute(`
+      SELECT m.id 
+      FROM matches m
+      JOIN lost_items li ON m.lostItemId = li.id
+      JOIN found_items fi ON m.foundItemId = fi.id
+      WHERE m.id = ? AND (li.userId = ? OR fi.userId = ?)
+    `, [matchId, userId, userId]);
+
+    if (matchCheck.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Match not found or unauthorized'
+      });
+    }
+
+    // Update match status
+    await db.execute(
+      'UPDATE matches SET status = ? WHERE id = ?',
+      [status, matchId]
+    );
+
+    logger.info(`Match ${matchId} status updated to ${status} by user ${userId}`);
+
+    res.json({
+      success: true,
+      message: 'Match status updated successfully'
+    });
+
+  } catch (error) {
+    logger.error(`Error updating match status: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update match status',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
-);
+});
 
 /**
  * GET /api/matches/stats
- * Get match statistics for user
+ * Get matching statistics untuk user
  */
-router.get('/stats',
-  auth,
-  async (req, res) => {
-    try {
-      const userId = req.user.id;
+router.get('/stats', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
 
-      const stats = await MatchService.getMatchStatistics(userId);
+    // Get statistics
+    const [statsRows] = await db.execute(`
+      SELECT 
+        -- Found items stats
+        (SELECT COUNT(*) FROM found_items WHERE userId = ?) as totalFoundItems,
+        (SELECT COUNT(*) FROM found_items fi 
+         JOIN matches m ON fi.id = m.foundItemId 
+         WHERE fi.userId = ? AND m.similarity >= 0.75) as foundWithMatches,
+        
+        -- Lost items stats  
+        (SELECT COUNT(*) FROM lost_items WHERE userId = ?) as totalLostItems,
+        (SELECT COUNT(*) FROM lost_items li
+         JOIN matches m ON li.id = m.lostItemId
+         WHERE li.userId = ? AND m.similarity >= 0.75) as lostWithMatches,
+         
+        -- Claims stats
+        (SELECT COUNT(*) FROM claims WHERE claimerId = ?) as totalClaims,
+        (SELECT COUNT(*) FROM claims WHERE claimerId = ? AND status = 'approved') as approvedClaims,
+        
+        -- Received claims stats
+        (SELECT COUNT(*) FROM claims c
+         JOIN found_items fi ON c.foundItemId = fi.id
+         WHERE fi.userId = ?) as receivedClaims,
+        (SELECT COUNT(*) FROM claims c
+         JOIN found_items fi ON c.foundItemId = fi.id
+         WHERE fi.userId = ? AND c.status = 'pending') as pendingClaims
+    `, [userId, userId, userId, userId, userId, userId, userId, userId]);
 
-      res.json({
-        success: true,
-        data: stats
-      });
+    const stats = statsRows[0];
 
-    } catch (error) {
-      logger.error(`Error getting match statistics: ${error.message}`);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to get match statistics',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
+    res.json({
+      success: true,
+      data: {
+        foundItems: {
+          total: stats.totalFoundItems,
+          withMatches: stats.foundWithMatches,
+          matchRate: stats.totalFoundItems > 0 ? 
+            ((stats.foundWithMatches / stats.totalFoundItems) * 100).toFixed(1) : 0
+        },
+        lostItems: {
+          total: stats.totalLostItems,
+          withMatches: stats.lostWithMatches,
+          matchRate: stats.totalLostItems > 0 ? 
+            ((stats.lostWithMatches / stats.totalLostItems) * 100).toFixed(1) : 0
+        },
+        claims: {
+          submitted: stats.totalClaims,
+          approved: stats.approvedClaims,
+          successRate: stats.totalClaims > 0 ? 
+            ((stats.approvedClaims / stats.totalClaims) * 100).toFixed(1) : 0
+        },
+        receivedClaims: {
+          total: stats.receivedClaims,
+          pending: stats.pendingClaims
+        }
+      }
+    });
+
+  } catch (error) {
+    logger.error(`Error getting match stats: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get statistics',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
-);
+});
 
 /**
- * POST /api/matches/manual-trigger
- * Manually trigger AI processing for an item
+ * POST /api/matches/manual
+ * Create manual match (admin feature)
  */
-router.post('/manual-trigger',
-  auth,
-  [
-    body('itemId').isUUID().withMessage('Invalid item ID'),
-    body('itemType').isIn(['found', 'lost']).withMessage('Invalid item type')
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Validation errors',
-          errors: errors.array()
-        });
-      }
-
-      const { itemId, itemType } = req.body;
-      const userId = req.user.id;
-
-      logger.info(`User ${userId} manually triggering AI processing for ${itemType} item ${itemId}`);
-
-      const AIService = require('../services/AIService');
-      const result = await AIService.triggerManualProcessing(itemId, itemType);
-
-      res.json({
-        success: true,
-        message: 'AI processing triggered successfully',
-        data: result
-      });
-
-    } catch (error) {
-      logger.error(`Error triggering manual AI processing: ${error.message}`);
-      res.status(500).json({
+router.post('/manual', auth, [
+  body('lostItemId').isUUID().withMessage('Invalid lost item ID'),
+  body('foundItemId').isUUID().withMessage('Invalid found item ID'),
+  body('similarity').isFloat({ min: 0, max: 1 }).withMessage('Similarity must be between 0-1'),
+  body('reason').optional().trim().isLength({ max: 500 }).withMessage('Reason too long')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
         success: false,
-        message: 'Failed to trigger AI processing',
-        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: 'Validation errors',
+        errors: errors.array()
       });
     }
+
+    const { lostItemId, foundItemId, similarity, reason } = req.body;
+    const userId = req.user.id;
+
+    // Check if items exist
+    const [itemCheck] = await db.execute(`
+      SELECT 
+        (SELECT COUNT(*) FROM lost_items WHERE id = ?) as lostExists,
+        (SELECT COUNT(*) FROM found_items WHERE id = ?) as foundExists
+    `, [lostItemId, foundItemId]);
+
+    if (itemCheck[0].lostExists === 0 || itemCheck[0].foundExists === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'One or both items not found'
+      });
+    }
+
+    // Check if match already exists
+    const [existingMatch] = await db.execute(
+      'SELECT id FROM matches WHERE lostItemId = ? AND foundItemId = ?',
+      [lostItemId, foundItemId]
+    );
+
+    if (existingMatch.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'Match already exists'
+      });
+    }
+
+    // Create manual match
+    const [result] = await db.execute(`
+      INSERT INTO matches (
+        id, lostItemId, foundItemId, similarity, matchType, status, 
+        aiMetadata, detectedAt, createdAt
+      ) VALUES (UUID(), ?, ?, ?, 'manual', 'new', ?, NOW(), NOW())
+    `, [lostItemId, foundItemId, similarity, JSON.stringify({ reason, createdBy: userId })]);
+
+    logger.info(`Manual match created between lost ${lostItemId} and found ${foundItemId}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Manual match created successfully',
+      data: {
+        lostItemId,
+        foundItemId,
+        similarity,
+        type: 'manual'
+      }
+    });
+
+  } catch (error) {
+    logger.error(`Error creating manual match: ${error.message}`);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create manual match',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
-);
+});
+
+// Helper function untuk confidence level
+function getConfidenceLevel(similarity) {
+  if (similarity >= 0.9) return 'Very High';
+  if (similarity >= 0.8) return 'High';
+  if (similarity >= 0.7) return 'Medium';
+  if (similarity >= 0.6) return 'Low';
+  return 'Very Low';
+}
 
 module.exports = router;

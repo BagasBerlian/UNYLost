@@ -4,7 +4,7 @@ const { body, param, query, validationResult } = require("express-validator");
 const { Claim, FoundItem, User, LostItem } = require("../models");
 const auth = require("../middleware/auth");
 const logger = require("../utils/logger");
-const { NotificationService } = require("../services/notificationService");
+const { NotificationService } = require("../services/NotificationService");
 
 const router = express.Router();
 
