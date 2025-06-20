@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pydantic
+transformers
+torch
+sentence-transformers
+redis
+python-dotenv
+python-multipart
+Pillow
+numpy
+aiofiles
+firebase-admin

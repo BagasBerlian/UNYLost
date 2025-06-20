@@ -7,10 +7,9 @@ ai-layer/__pycache__/
 ai-layer/**/__pycache__/
 ai-layer/**/*.py[cod]
 ai-layer/**/*$py.class
-ai-layer/firebase_key/**
+ai-layer/config/serviceAccountKey.json
 ai-layer/temp_images/**
 ai-layer/logs/**
-ai-layer/firebase_key/*
 
 #backend
 backend/node_modules
