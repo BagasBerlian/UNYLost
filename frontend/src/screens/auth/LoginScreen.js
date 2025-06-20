@@ -1,4 +1,3 @@
-// File: frontend/src/screens/auth/LoginScreen.js - FINAL NO NAVIGATION VERSION
 import React, { useState } from "react";
 import {
   View,

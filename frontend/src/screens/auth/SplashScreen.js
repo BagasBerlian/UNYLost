@@ -1,4 +1,3 @@
-// File: frontend/src/screens/auth/SplashScreen.js - FIXED VERSION
 import React, { useEffect, useRef } from "react";
 import { View, Text, StyleSheet, Dimensions, Animated } from "react-native";
 import { useNavigation } from "@react-navigation/native";

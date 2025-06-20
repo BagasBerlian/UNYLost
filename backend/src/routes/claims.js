@@ -164,6 +164,39 @@ router.post("/:foundItemId", auth, createClaimValidation, async (req, res) => {
   }
 });
 
+router.get("/my-claims", auth, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    const claims = await Claim.findAll({
+      where: {
+        claimingUserId: userId, // <-- Filter berdasarkan ID user yang membuat klaim
+      },
+      include: [
+        {
+          model: Item, // Sertakan detail item yang diklaim
+          as: "item",
+          include: [
+            { model: Image, as: "images", attributes: ["url"] }, // Sertakan juga gambar item
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+    });
+
+    if (!claims) {
+      return res
+        .status(404)
+        .json({ message: "No claims found for this user." });
+    }
+
+    res.status(200).json(claims);
+  } catch (error) {
+    console.error("Error fetching user claims:", error);
+    next(error);
+  }
+});
+
 /**
  * @route   GET /api/claims/my
  * @desc    Get user's claims

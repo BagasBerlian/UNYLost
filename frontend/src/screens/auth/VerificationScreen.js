@@ -1,4 +1,3 @@
-// File: frontend/src/screens/auth/VerificationScreen.js
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,

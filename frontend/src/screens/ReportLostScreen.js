@@ -1,4 +1,3 @@
-// File: frontend/src/screens/ReportLostScreen.js - Enhanced Version
 import React, { useState } from "react";
 import {
   View,

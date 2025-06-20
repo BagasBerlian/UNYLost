@@ -1,6 +1,3 @@
-// File: frontend/src/screens/MyItemsScreen.js
-// Screen untuk menampilkan item-item milik user (found, lost, claims)
-
 import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
@@ -21,6 +18,92 @@ import { API_CONFIG } from "../config/api";
 
 const { width } = Dimensions.get("window");
 
+const dummyFoundItems = [
+  {
+    id: "found-1",
+    name: "Kunci Mobil Toyota",
+    description:
+      "Ditemukan kunci mobil dengan gantungan menara Eiffel di dekat parkiran rektorat.",
+    location: "Gedung Rektorat UNY",
+    createdAt: "2025-06-12T10:00:00Z",
+    images: [
+      "https://media.karousell.com/media/photos/products/2024/8/2/cari_hp_iphone_15_14_promax_ba_1722579763_50f13e90_progressive",
+    ],
+    status: "claimed",
+    type: "found",
+    user: { name: "Bagas" },
+  },
+  {
+    id: "found-2",
+    name: "Headphone Sony WH-1000XM4",
+    description:
+      "Headphone dalam case hitam, ditemukan di perpustakaan pusat, lantai 2.",
+    location: "Perpustakaan Pusat UNY",
+    createdAt: "2025-06-4T15:30:00Z",
+    images: [
+      "https://www.static-src.com/wcsstore/Indraprastha/images/catalog/full//95/MTA-59702422/brd-69012_botol-minum-thermos-stainless-steel-800-ml-hd-688_full01.jpg",
+    ],
+    type: "found",
+    status: "pending",
+    user: { name: "Bagas" },
+  },
+];
+
+const dummyLostItems = [
+  {
+    id: "lost-1",
+    name: "Dompet Kulit Coklat",
+    description:
+      "Dompet berisi KTP, SIM, dan KTM. Terakhir terlihat di kantin FT.",
+    location: "Kantin Fakultas Teknik",
+    createdAt: "2025-06-16T12:00:00Z",
+    images: [
+      "https://id-test-11.slatic.net/p/664814516ac5c05b6e3063ef805eb91c.jpg",
+    ],
+    type: "lost",
+    user: { name: "Bagas" },
+  },
+];
+
+const dummyClaims = [
+  {
+    id: "claim-1",
+    status: "Pending",
+    createdAt: "2025-06-18T09:00:00Z",
+    type: "claims",
+    item: {
+      id: "item-xyz",
+      name: "iPhone 13 Pro",
+      description: "Ditemukan iPhone 13 Pro warna Sierra Blue di dekat FIP.",
+      location: "Fakultas Ilmu Pendidikan",
+      createdAt: "2025-06-17T08:00:00Z",
+      images: [
+        "https://imgx.gridoto.com/crop/0x0:1280x853/700x465/filters:watermark(file/2017/gridoto/img/watermark.png,5,5,60)/photo/gridoto/2017/11/23/3353269077.jpeg",
+      ],
+      type: "found",
+      user: { name: "Penemu Baik" },
+    },
+  },
+  {
+    id: "claim-2",
+    status: "Approved",
+    createdAt: "2025-06-15T11:00:00Z",
+    type: "claims",
+    item: {
+      id: "item-abc",
+      name: "Botol Minum Corkcicle",
+      description: "Botol minum warna pink, ditemukan di GOR.",
+      location: "GOR UNY",
+      createdAt: "2025-06-14T17:00:00Z",
+      images: [
+        "https://filebroker-cdn.lazada.co.id/kf/Sdb09655bd0654c2cbd0c4cc7f73d7e517.jpg",
+      ],
+      type: "found",
+      user: { name: "Admin GOR" },
+    },
+  },
+];
+
 export default function MyItemsScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState("found");
   const [items, setItems] = useState({
@@ -28,9 +111,9 @@ export default function MyItemsScreen({ navigation }) {
     lost: [],
     claims: [],
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Mulai dengan true
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [userEmail, setUserEmail] = useState("");
+  const [userEmail, setUserEmail] = useState("user.demo@uny.ac.id");
 
   // Tab configuration
   const tabs = [
@@ -39,216 +122,56 @@ export default function MyItemsScreen({ navigation }) {
     { id: "claims", label: "Klaim", count: items.claims.length },
   ];
 
-  // Debug AsyncStorage
-  const debugAsyncStorage = async () => {
-    try {
-      const keys = await AsyncStorage.getAllKeys();
-      console.log("🔍 AsyncStorage Keys:", keys);
-
-      for (const key of keys) {
-        const value = await AsyncStorage.getItem(key);
-        console.log(`📱 ${key}:`, value);
-      }
-    } catch (error) {
-      console.error("Debug AsyncStorage error:", error);
-    }
-  };
-
-  // Get user data dari AsyncStorage
-  const getUserData = async () => {
-    try {
-      // Try get email directly first
-      let email = await AsyncStorage.getItem("userEmail");
-      if (email) {
-        console.log("✅ Found email from userEmail key:", email);
-        setUserEmail(email);
-        return email;
-      }
-
-      // Try get from email key
-      email = await AsyncStorage.getItem("email");
-      if (email) {
-        console.log("✅ Found email from email key:", email);
-        setUserEmail(email);
-        return email;
-      }
-
-      // Try get from userData object
-      const userData = await AsyncStorage.getItem("userData");
-      if (userData) {
-        const user = JSON.parse(userData);
-        if (user.email) {
-          console.log("✅ Found email from userData:", user.email);
-          setUserEmail(user.email);
-          return user.email;
-        }
-      }
-
-      throw new Error("Email not found in AsyncStorage");
-    } catch (error) {
-      console.error("❌ Error getting user email:", error);
-      Alert.alert(
-        "Session Expired",
-        "Silakan login kembali untuk melanjutkan",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              AsyncStorage.multiRemove([
-                "userToken",
-                "userEmail",
-                "userData",
-                "email",
-              ]);
-              navigation.goBack();
-            },
-          },
-        ]
-      );
-      return null;
-    }
-  };
-
-  // Fetch user items dari backend berdasarkan type
-  const fetchUserItems = async (type = "all") => {
-    try {
-      const token = await AsyncStorage.getItem("userToken");
-      if (!token) {
-        throw new Error("Token not found");
-      }
-
-      console.log(`📡 Fetching user items, type: ${type}`);
-
-      const response = await fetch(
-        `${API_CONFIG.BASE_URL}/items/my-items?type=${type}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Token expired");
-        }
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to fetch items");
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error("❌ Error fetching user items:", error);
-
-      if (error.message === "Token expired") {
-        Alert.alert("Sesi Berakhir", "Silakan login kembali", [
-          {
-            text: "OK",
-            onPress: () => {
-              AsyncStorage.multiRemove(["userToken", "userEmail", "userData"]);
-              navigation.goBack();
-            },
-          },
-        ]);
-      } else {
-        Alert.alert("Error", "Gagal mengambil data item");
-      }
-
-      throw error;
-    }
-  };
-
-  // Load semua data user berdasarkan tab aktif
-  const loadUserItems = async (showLoading = true) => {
-    try {
-      if (showLoading) setIsLoading(true);
-
-      const email = await getUserData();
-      if (!email) return;
-
-      // Fetch data untuk semua tabs
-      const [foundResponse, lostResponse, claimsResponse] =
-        await Promise.allSettled([
-          fetchUserItems("found"),
-          fetchUserItems("lost"),
-          fetchUserItems("claims"),
-        ]);
-
-      // Update state dengan data yang berhasil di-fetch
+  // Fungsi untuk memuat data dummy
+  const loadDummyData = useCallback(() => {
+    setIsLoading(true);
+    // Simulasi jeda jaringan
+    setTimeout(() => {
       setItems({
-        found:
-          foundResponse.status === "fulfilled"
-            ? foundResponse.value.data || []
-            : [],
-        lost:
-          lostResponse.status === "fulfilled"
-            ? lostResponse.value.data || []
-            : [],
-        claims:
-          claimsResponse.status === "fulfilled"
-            ? claimsResponse.value.data || []
-            : [],
+        found: dummyFoundItems,
+        lost: dummyLostItems,
+        claims: dummyClaims,
       });
-
-      console.log("✅ Items loaded successfully:", {
-        found:
-          foundResponse.status === "fulfilled"
-            ? foundResponse.value.data?.length
-            : 0,
-        lost:
-          lostResponse.status === "fulfilled"
-            ? lostResponse.value.data?.length
-            : 0,
-        claims:
-          claimsResponse.status === "fulfilled"
-            ? claimsResponse.value.data?.length
-            : 0,
-      });
-    } catch (error) {
-      console.error("❌ Error loading user items:", error);
-    } finally {
       setIsLoading(false);
       setIsRefreshing(false);
-    }
-  };
+    }, 1000); // Jeda 1 detik
+  }, []);
 
   // Handle refresh
   const handleRefresh = useCallback(() => {
     setIsRefreshing(true);
-    loadUserItems(false);
-  }, []);
+    loadDummyData();
+  }, [loadDummyData]);
 
   // Handle item press
-  const handleItemPress = (item) => {
-    console.log("📱 Item pressed:", item.id, item.type);
+  const handleItemPress = (data) => {
+    console.log("📱 Item pressed:", data);
 
-    // Navigate ke detail berdasarkan tipe item
-    if (item.type === "found") {
+    // Navigasi ke detail berdasarkan tipe data
+    // Untuk 'found' & 'lost', data adalah item itu sendiri
+    // Untuk 'claims', data adalah objek klaim
+    if (data.type === "found") {
       navigation.navigate("FoundItemDetail", {
-        itemId: item.id,
+        itemId: data.id,
         isOwner: true,
       });
-    } else if (item.type === "lost") {
+    } else if (data.type === "lost") {
       navigation.navigate("LostItemDetail", {
-        itemId: item.id,
+        itemId: data.id,
         isOwner: true,
       });
-    } else if (item.type === "claims") {
+    } else if (data.type === "claims") {
       navigation.navigate("ClaimDetail", {
-        claimId: item.id,
+        claimId: data.id,
       });
     }
   };
 
-  // Load data ketika screen di-focus
+  // Gunakan useFocusEffect untuk memuat data setiap kali layar ini aktif
   useFocusEffect(
     useCallback(() => {
-      debugAsyncStorage();
-      loadUserItems();
-    }, [])
+      loadDummyData();
+    }, [loadDummyData])
   );
 
   // Get current items based on active tab
@@ -284,7 +207,7 @@ export default function MyItemsScreen({ navigation }) {
   const renderTabContent = () => {
     const currentItems = getCurrentItems();
 
-    if (currentItems.length === 0) {
+    if (currentItems.length === 0 && !isLoading) {
       return (
         <View style={styles.emptyContainer}>
           <Ionicons
@@ -305,13 +228,6 @@ export default function MyItemsScreen({ navigation }) {
               ? "Belum ada barang hilang"
               : "Belum ada klaim"}
           </Text>
-          <Text style={styles.emptySubtext}>
-            {activeTab === "found"
-              ? "Laporkan barang yang Anda temukan"
-              : activeTab === "lost"
-              ? "Laporkan barang yang hilang"
-              : "Klaim akan muncul setelah disetujui"}
-          </Text>
         </View>
       );
     }
@@ -325,15 +241,27 @@ export default function MyItemsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 20 }}
       >
-        {currentItems.map((item, index) => (
-          <ItemCard
-            key={item.id || index}
-            item={item}
-            type={activeTab}
-            onPress={handleItemPress}
-            isOwner={true}
-          />
-        ))}
+        {currentItems.map((data, index) => {
+          // Jika tab adalah 'claims', 'item' berada di dalam 'data.item'
+          // Jika tidak, 'item' adalah 'data' itu sendiri
+          const item = activeTab === "claims" ? data.item : data;
+          const key = activeTab === "claims" ? data.id : item.id;
+
+          // Menambahkan properti status untuk ditampilkan di ItemCard jika itu adalah klaim
+          if (activeTab === "claims") {
+            item.claimStatus = data.status;
+          }
+
+          return (
+            <ItemCard
+              key={key || index}
+              item={item}
+              type={item.type} // Gunakan tipe asli dari item
+              onPress={() => handleItemPress(data)}
+              isOwner={true}
+            />
+          );
+        })}
       </ScrollView>
     );
   };
@@ -349,14 +277,6 @@ export default function MyItemsScreen({ navigation }) {
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Item Saya</Text>
-
-        {/* Debug button - remove in production */}
-        <TouchableOpacity
-          style={styles.debugButton}
-          onPress={debugAsyncStorage}
-        >
-          <Ionicons name="bug" size={20} color="white" />
-        </TouchableOpacity>
       </View>
 
       {/* User Info */}
@@ -417,7 +337,11 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
-    marginRight: 8,
+    marginRight: 16, // Memberi jarak agar judul bisa center
+    position: "absolute", // Membuat tombol back tidak mendorong judul
+    left: 16,
+    top: 50,
+    zIndex: 1,
   },
   headerTitle: {
     flex: 1,
@@ -425,12 +349,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "white",
     textAlign: "center",
-    marginRight: 40,
-  },
-  debugButton: {
-    padding: 8,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderRadius: 6,
   },
   userInfo: {
     backgroundColor: "white",
@@ -513,11 +431,5 @@ const styles = StyleSheet.create({
     color: "#374151",
     textAlign: "center",
     marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: "#6b7280",
-    textAlign: "center",
-    marginTop: 8,
   },
 });

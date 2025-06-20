@@ -1,4 +1,3 @@
-// File: frontend/src/screens/DashboardScreen.js - FIXED
 import React, { useState, useEffect } from "react";
 import {
   View,

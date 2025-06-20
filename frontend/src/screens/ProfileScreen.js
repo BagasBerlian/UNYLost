@@ -1,4 +1,3 @@
-// File: frontend/src/screens/ProfileScreen.js
 import React from "react";
 import {
   View,

@@ -1,6 +1,3 @@
-// File: frontend/src/screens/ReportFoundScreen.js
-// Screen untuk melaporkan barang temuan
-
 import React, { useState } from "react";
 import {
   View,
@@ -13,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -91,7 +89,7 @@ export default function ReportFoundScreen({ navigation }) {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
@@ -269,232 +267,239 @@ export default function ReportFoundScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.container}
+    >
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Laporkan Barang Temuan</Text>
+        </View>
+
+        <ScrollView
+          style={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Laporkan Barang Temuan</Text>
-      </View>
-
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Info Section */}
-        <View style={styles.infoCard}>
-          <Ionicons name="information-circle" size={24} color="#2563eb" />
-          <View style={styles.infoText}>
-            <Text style={styles.infoTitle}>
-              Bantu Orang Menemukan Barangnya
-            </Text>
-            <Text style={styles.infoDescription}>
-              Laporkan barang yang Anda temukan dengan detail yang lengkap.
-              Sistem AI akan mencocokkan dengan laporan barang hilang.
-            </Text>
+          {/* Info Section */}
+          <View style={styles.infoCard}>
+            <Ionicons name="information-circle" size={24} color="#2563eb" />
+            <View style={styles.infoText}>
+              <Text style={styles.infoTitle}>
+                Bantu Orang Menemukan Barangnya
+              </Text>
+              <Text style={styles.infoDescription}>
+                Laporkan barang yang Anda temukan dengan detail yang lengkap.
+                Sistem AI akan mencocokkan dengan laporan barang hilang.
+              </Text>
+            </View>
           </View>
-        </View>
 
-        {/* Upload Photos Section */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Foto Barang Temuan</Text>
-          <Text style={styles.sublabel}>
-            Tambahkan foto untuk membantu pemilik mengenali barangnya
-          </Text>
+          {/* Upload Photos Section */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Foto Barang Temuan</Text>
+            <Text style={styles.sublabel}>
+              Tambahkan foto untuk membantu pemilik mengenali barangnya
+            </Text>
 
-          <View style={styles.imageGrid}>
-            {formData.images.map((img, index) => (
-              <View key={index} style={styles.imageContainer}>
-                <Image source={{ uri: img.uri }} style={styles.image} />
+            <View style={styles.imageGrid}>
+              {formData.images.map((img, index) => (
+                <View key={index} style={styles.imageContainer}>
+                  <Image source={{ uri: img.uri }} style={styles.image} />
+                  <TouchableOpacity
+                    style={styles.removeButton}
+                    onPress={() => removeImage(index)}
+                  >
+                    <Ionicons name="close-circle" size={20} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+
+              {formData.images.length < 5 && (
                 <TouchableOpacity
-                  style={styles.removeButton}
-                  onPress={() => removeImage(index)}
+                  style={styles.addImageButton}
+                  onPress={handleImagePicker}
                 >
-                  <Ionicons name="close-circle" size={20} color="#ef4444" />
+                  <Ionicons name="camera" size={32} color="#9ca3af" />
+                  <Text style={styles.addImageText}>Tambah Foto</Text>
+                  <Text style={styles.addImageSubText}>JPG, PNG (Max 5MB)</Text>
                 </TouchableOpacity>
-              </View>
-            ))}
-
-            {formData.images.length < 5 && (
-              <TouchableOpacity
-                style={styles.addImageButton}
-                onPress={handleImagePicker}
-              >
-                <Ionicons name="camera" size={32} color="#9ca3af" />
-                <Text style={styles.addImageText}>Tambah Foto</Text>
-                <Text style={styles.addImageSubText}>JPG, PNG (Max 5MB)</Text>
-              </TouchableOpacity>
-            )}
+              )}
+            </View>
           </View>
-        </View>
 
-        {/* Item Name */}
-        <View style={styles.section}>
-          <Text style={styles.label}>
-            Nama Barang <Text style={styles.required}>*</Text>
-          </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Contoh: Dompet Hitam"
-            value={formData.itemName}
-            onChangeText={(text) => handleInputChange("itemName", text)}
-            maxLength={100}
-          />
-        </View>
+          {/* Item Name */}
+          <View style={styles.section}>
+            <Text style={styles.label}>
+              Nama Barang <Text style={styles.required}>*</Text>
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Contoh: Dompet Hitam"
+              value={formData.itemName}
+              onChangeText={(text) => handleInputChange("itemName", text)}
+              maxLength={100}
+            />
+          </View>
 
-        {/* Description */}
-        <View style={styles.section}>
-          <Text style={styles.label}>
-            Deskripsi Detail Barang <Text style={styles.required}>*</Text>
-          </Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Jelaskan detail barang seperti warna, merek, kondisi, isi yang ada di dalamnya, dll."
-            value={formData.description}
-            onChangeText={(text) => handleInputChange("description", text)}
-            maxLength={1000}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
-          <Text style={styles.charCount}>
-            {formData.description.length}/1000 karakter
-          </Text>
-        </View>
+          {/* Description */}
+          <View style={styles.section}>
+            <Text style={styles.label}>
+              Deskripsi Detail Barang <Text style={styles.required}>*</Text>
+            </Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Jelaskan detail barang seperti warna, merek, kondisi, isi yang ada di dalamnya, dll."
+              value={formData.description}
+              onChangeText={(text) => handleInputChange("description", text)}
+              maxLength={1000}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+            <Text style={styles.charCount}>
+              {formData.description.length}/1000 karakter
+            </Text>
+          </View>
 
-        {/* Category */}
-        <View style={styles.section}>
-          <Text style={styles.label}>
-            Kategori Barang <Text style={styles.required}>*</Text>
-          </Text>
-          <View style={styles.categoryGrid}>
-            {categories.map((cat) => (
-              <TouchableOpacity
-                key={cat.value}
-                style={[
-                  styles.categoryButton,
-                  formData.category === cat.value &&
-                    styles.categoryButtonActive,
-                ]}
-                onPress={() => handleInputChange("category", cat.value)}
-              >
-                <Ionicons
-                  name={cat.icon}
-                  size={24}
-                  color={formData.category === cat.value ? "white" : "#6b7280"}
-                />
-                <Text
+          {/* Category */}
+          <View style={styles.section}>
+            <Text style={styles.label}>
+              Kategori Barang <Text style={styles.required}>*</Text>
+            </Text>
+            <View style={styles.categoryGrid}>
+              {categories.map((cat) => (
+                <TouchableOpacity
+                  key={cat.value}
                   style={[
-                    styles.categoryText,
+                    styles.categoryButton,
                     formData.category === cat.value &&
-                      styles.categoryTextActive,
+                      styles.categoryButtonActive,
                   ]}
+                  onPress={() => handleInputChange("category", cat.value)}
                 >
-                  {cat.label}
+                  <Ionicons
+                    name={cat.icon}
+                    size={24}
+                    color={
+                      formData.category === cat.value ? "white" : "#6b7280"
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.categoryText,
+                      formData.category === cat.value &&
+                        styles.categoryTextActive,
+                    ]}
+                  >
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Location Found */}
+          <View style={styles.section}>
+            <Text style={styles.label}>
+              Lokasi Tempat Menemukan <Text style={styles.required}>*</Text>
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Contoh: Perpustakaan UNY Lantai 2"
+              value={formData.locationFound}
+              onChangeText={(text) => handleInputChange("locationFound", text)}
+              maxLength={200}
+            />
+          </View>
+
+          {/* Date and Time Found */}
+          <View style={styles.section}>
+            <Text style={styles.label}>
+              Tanggal & Waktu Menemukan <Text style={styles.required}>*</Text>
+            </Text>
+
+            <View style={styles.dateTimeRow}>
+              {/* Date Picker */}
+              <TouchableOpacity
+                style={[styles.input, styles.dateTimeInput]}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Ionicons name="calendar" size={20} color="#6b7280" />
+                <Text style={styles.dateTimeText}>
+                  {formatDate(formData.foundDate)}
                 </Text>
               </TouchableOpacity>
-            ))}
-          </View>
-        </View>
 
-        {/* Location Found */}
-        <View style={styles.section}>
-          <Text style={styles.label}>
-            Lokasi Tempat Menemukan <Text style={styles.required}>*</Text>
-          </Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Contoh: Perpustakaan UNY Lantai 2"
-            value={formData.locationFound}
-            onChangeText={(text) => handleInputChange("locationFound", text)}
-            maxLength={200}
-          />
-        </View>
+              {/* Time Picker */}
+              <TouchableOpacity
+                style={[styles.input, styles.dateTimeInput]}
+                onPress={() => setShowTimePicker(true)}
+              >
+                <Ionicons name="time" size={20} color="#6b7280" />
+                <Text style={styles.dateTimeText}>
+                  {formatTime(formData.foundTime)}
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-        {/* Date and Time Found */}
-        <View style={styles.section}>
-          <Text style={styles.label}>
-            Tanggal & Waktu Menemukan <Text style={styles.required}>*</Text>
-          </Text>
-
-          <View style={styles.dateTimeRow}>
-            {/* Date Picker */}
-            <TouchableOpacity
-              style={[styles.input, styles.dateTimeInput]}
-              onPress={() => setShowDatePicker(true)}
-            >
-              <Ionicons name="calendar" size={20} color="#6b7280" />
-              <Text style={styles.dateTimeText}>
-                {formatDate(formData.foundDate)}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Time Picker */}
-            <TouchableOpacity
-              style={[styles.input, styles.dateTimeInput]}
-              onPress={() => setShowTimePicker(true)}
-            >
-              <Ionicons name="time" size={20} color="#6b7280" />
-              <Text style={styles.dateTimeText}>
-                {formatTime(formData.foundTime)}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Date Picker Modal */}
-          {showDatePicker && (
-            <DateTimePicker
-              value={formData.foundDate}
-              mode="date"
-              display={Platform.OS === "ios" ? "spinner" : "default"}
-              onChange={handleDateChange}
-              maximumDate={new Date()}
-            />
-          )}
-
-          {/* Time Picker Modal */}
-          {showTimePicker && (
-            <DateTimePicker
-              value={formData.foundTime}
-              mode="time"
-              display={Platform.OS === "ios" ? "spinner" : "default"}
-              onChange={handleTimeChange}
-            />
-          )}
-        </View>
-
-        {/* Submit Button */}
-        <View style={styles.submitSection}>
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              isSubmitting && styles.submitButtonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Ionicons name="checkmark-circle" size={24} color="white" />
+            {/* Date Picker Modal */}
+            {showDatePicker && (
+              <DateTimePicker
+                value={formData.foundDate}
+                mode="date"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={handleDateChange}
+                maximumDate={new Date()}
+              />
             )}
-            <Text style={styles.submitButtonText}>
-              {isSubmitting ? "Mengirim..." : "Laporkan Barang Temuan"}
-            </Text>
-          </TouchableOpacity>
 
-          <Text style={styles.submitNote}>
-            Dengan mengirim laporan ini, Anda setuju untuk dihubungi jika ada
-            yang mengklaim barang tersebut.
-          </Text>
-        </View>
-      </ScrollView>
-    </View>
+            {/* Time Picker Modal */}
+            {showTimePicker && (
+              <DateTimePicker
+                value={formData.foundTime}
+                mode="time"
+                display={Platform.OS === "ios" ? "spinner" : "default"}
+                onChange={handleTimeChange}
+              />
+            )}
+          </View>
+
+          {/* Submit Button */}
+          <View style={styles.submitSection}>
+            <TouchableOpacity
+              style={[
+                styles.submitButton,
+                isSubmitting && styles.submitButtonDisabled,
+              ]}
+              onPress={handleSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <Ionicons name="checkmark-circle" size={24} color="white" />
+              )}
+              <Text style={styles.submitButtonText}>
+                {isSubmitting ? "Mengirim..." : "Laporkan Barang Temuan"}
+              </Text>
+            </TouchableOpacity>
+
+            <Text style={styles.submitNote}>
+              Dengan mengirim laporan ini, Anda setuju untuk dihubungi jika ada
+              yang mengklaim barang tersebut.
+            </Text>
+          </View>
+        </ScrollView>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 

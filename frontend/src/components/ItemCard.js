@@ -1,6 +1,3 @@
-// File: frontend/src/components/ItemCard.js
-// Component untuk menampilkan item card di My Items screen
-
 import React from "react";
 import {
   View,
@@ -15,7 +12,6 @@ import { Ionicons } from "@expo/vector-icons";
 const { width } = Dimensions.get("window");
 
 const ItemCard = ({ item, type, onPress, isOwner = false }) => {
-  // Format date
   const formatDate = (dateString) => {
     if (!dateString) return "Tanggal tidak tersedia";
 
@@ -31,7 +27,6 @@ const ItemCard = ({ item, type, onPress, isOwner = false }) => {
     }
   };
 
-  // Get time ago
   const getTimeAgo = (dateString) => {
     if (!dateString) return "Waktu tidak tersedia";
 

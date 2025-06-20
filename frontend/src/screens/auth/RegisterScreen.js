@@ -1,4 +1,3 @@
-// File: frontend/src/screens/auth/RegisterScreen.js - FIXED VERSION
 import React, { useState } from "react";
 import {
   View,
