@@ -17,6 +17,7 @@ class FileService {
     // Setup Google Drive API
     this.drive = null;
     this.folderId = null;
+    this.folderIds = {};
     this.initGoogleDrive();
   }
 
@@ -47,27 +48,91 @@ class FileService {
 
       // Cari atau buat folder UNYLost
       this.folderId = await this.findOrCreateFolder("UNYLost");
-      console.log(`Using Google Drive folder with ID: ${this.folderId}`);
+      console.log(`Using root Google Drive folder with ID: ${this.folderId}`);
+
+      // Buat struktur folder
+      await this.setupFolderStructure();
     } catch (error) {
       console.error("Error initializing Google Drive:", error);
       console.warn("Falling back to local storage");
     }
   }
 
-  async findOrCreateFolder(folderName) {
+  async setupFolderStructure() {
     try {
+      // Buat folder kategori
+      const categories = ["lost_items", "found_items", "claims", "profiles"];
+
+      for (const category of categories) {
+        this.folderIds[category] = await this.findOrCreateFolder(
+          category,
+          this.folderId
+        );
+        console.log(
+          `Created/found ${category} folder with ID: ${this.folderIds[category]}`
+        );
+
+        // Untuk item, buat subfolder berdasarkan kategori item
+        if (category === "lost_items" || category === "found_items") {
+          const itemCategories = [
+            "electronics",
+            "documents",
+            "clothing",
+            "accessories",
+            "others",
+          ];
+
+          for (const itemCategory of itemCategories) {
+            const categoryFolderId = await this.findOrCreateFolder(
+              itemCategory,
+              this.folderIds[category]
+            );
+            this.folderIds[`${category}_${itemCategory}`] = categoryFolderId;
+            console.log(
+              `Created/found ${category}_${itemCategory} folder with ID: ${categoryFolderId}`
+            );
+          }
+        }
+      }
+
+      // Buat folder berdasarkan tanggal (tahun/bulan)
+      const now = new Date();
+      const year = now.getFullYear().toString();
+      const month = (now.getMonth() + 1).toString().padStart(2, "0");
+
+      // Buat folder tahun jika belum ada
+      const yearFolderId = await this.findOrCreateFolder(year, this.folderId);
+
+      // Buat folder bulan jika belum ada
+      const monthFolderId = await this.findOrCreateFolder(
+        `${year}-${month}`,
+        yearFolderId
+      );
+
+      this.folderIds["current_month"] = monthFolderId;
+    } catch (error) {
+      console.error("Error setting up folder structure:", error);
+    }
+  }
+
+  async findOrCreateFolder(folderName, parentFolderId = null) {
+    try {
+      // Buat query pencarian folder
+      let query = `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+
+      // Jika ada parent folder, tambahkan ke query
+      if (parentFolderId) {
+        query += ` and '${parentFolderId}' in parents`;
+      }
+
       // Cari folder yang sudah ada
       const response = await this.drive.files.list({
-        q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        q: query,
         fields: "files(id, name)",
       });
 
       if (response.data.files.length > 0) {
         console.log(`Found existing folder: ${folderName}`);
-
-        // Pastikan folder memiliki permission yang benar
-        await this.ensureFolderPermission(response.data.files[0].id);
-
         return response.data.files[0].id;
       }
 
@@ -77,6 +142,11 @@ class FileService {
         name: folderName,
         mimeType: "application/vnd.google-apps.folder",
       };
+
+      // Jika ada parent folder, tambahkan
+      if (parentFolderId) {
+        fileMetadata.parents = [parentFolderId];
+      }
 
       const folder = await this.drive.files.create({
         resource: fileMetadata,
@@ -105,23 +175,48 @@ class FileService {
       console.log(`Set public permission for folder: ${folderId}`);
     } catch (error) {
       console.error(`Error setting folder permission: ${error.message}`);
-      // Lanjutkan meskipun gagal set permission
     }
   }
 
-  async uploadToGoogleDrive(file) {
+  async uploadToGoogleDrive(
+    file,
+    category = "others",
+    itemCategory = "others"
+  ) {
     try {
       if (!this.drive || !this.folderId) {
         throw new Error("Google Drive not initialized properly");
       }
 
-      // Buat file metadata
-      const fileName = `${uuidv4()}${path.extname(
+      // Pilih folder yang tepat berdasarkan kategori
+      let targetFolderId = this.folderId; // default: root folder
+
+      if (category === "lost_items" || category === "found_items") {
+        // Cari folder kategori item jika tersedia
+        const folderKey = `${category}_${itemCategory}`;
+        if (this.folderIds[folderKey]) {
+          targetFolderId = this.folderIds[folderKey];
+        }
+        // Fallback ke folder utama kategori jika subfolder tidak ada
+        else if (this.folderIds[category]) {
+          targetFolderId = this.folderIds[category];
+        }
+      }
+      // Gunakan folder kategori jika tersedia
+      else if (this.folderIds[category]) {
+        targetFolderId = this.folderIds[category];
+      }
+
+      // Buat nama file yang unik dengan timestamp dan uuid
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const fileName = `${timestamp}-${uuidv4()}${path.extname(
         file.originalname || ".jpg"
       )}`;
+
       const fileMetadata = {
         name: fileName,
-        parents: [this.folderId],
+        parents: [targetFolderId],
+        description: `UNYLost ${category} - ${new Date().toISOString()}`,
       };
 
       // Siapkan media dengan stream yang benar
@@ -163,6 +258,18 @@ class FileService {
       const fileUrl = `https://drive.google.com/uc?export=view&id=${response.data.id}`;
       console.log(`File public URL: ${fileUrl}`);
 
+      // Tambahkan metadata kategori ke file
+      await this.drive.files.update({
+        fileId: response.data.id,
+        requestBody: {
+          appProperties: {
+            category: category,
+            itemCategory: itemCategory || "others",
+            uploadedBy: "UNYLost App",
+          },
+        },
+      });
+
       return fileUrl;
     } catch (error) {
       console.error("Error uploading to Google Drive:", error);
@@ -170,7 +277,11 @@ class FileService {
     }
   }
 
-  async uploadMultipleFiles(files) {
+  async uploadMultipleFiles(
+    files,
+    category = "others",
+    itemCategory = "others"
+  ) {
     try {
       const fileUrls = [];
 
@@ -180,7 +291,11 @@ class FileService {
         // Coba upload ke Google Drive terlebih dahulu
         if (this.drive && this.folderId) {
           try {
-            fileUrl = await this.uploadToGoogleDrive(file);
+            fileUrl = await this.uploadToGoogleDrive(
+              file,
+              category,
+              itemCategory
+            );
           } catch (driveError) {
             console.error("Error uploading to Google Drive:", driveError);
             console.log("Falling back to local storage");
@@ -202,6 +317,30 @@ class FileService {
   }
 
   // Metode upload lokal (sebagai fallback)
+  async uploadFile(file) {
+    try {
+      const extension = path.extname(file.originalname || ".jpg");
+      const fileName = `${uuidv4()}${extension}`;
+      const filePath = path.join(this.uploadDir, fileName);
+
+      console.log(`Uploading file locally: ${fileName}`);
+
+      // Buat writable stream
+      const writeStream = fs.createWriteStream(filePath);
+
+      // Tulis buffer file ke stream
+      writeStream.write(file.buffer);
+      writeStream.end();
+
+      // Return URL lengkap
+      const fullUrl = `http://localhost:5000/uploads/${fileName}`;
+      console.log(`File uploaded locally: ${fullUrl}`);
+      return fullUrl;
+    } catch (error) {
+      console.error("Error uploading file locally:", error);
+      throw error;
+    }
+  }
   async uploadFile(file) {
     try {
       const extension = path.extname(file.originalname || ".jpg");

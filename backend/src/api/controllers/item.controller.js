@@ -13,7 +13,12 @@ class ItemController {
       // Upload gambar jika ada
       if (files.length > 0) {
         console.log(`Uploading ${files.length} files for lost item`);
-        const imageUrls = await FileService.uploadMultipleFiles(files);
+        // Gunakan kategori item saat upload
+        const imageUrls = await FileService.uploadMultipleFiles(
+          files,
+          "lost_items",
+          itemData.category || "others"
+        );
         itemData.images = imageUrls;
         console.log("Uploaded image URLs:", imageUrls);
       }
@@ -77,7 +82,12 @@ class ItemController {
       // Upload gambar jika ada
       if (files.length > 0) {
         console.log(`Uploading ${files.length} files for found item`);
-        const imageUrls = await FileService.uploadMultipleFiles(files);
+        // Gunakan kategori item saat upload
+        const imageUrls = await FileService.uploadMultipleFiles(
+          files,
+          "found_items",
+          itemData.category || "others"
+        );
         itemData.images = imageUrls;
         console.log("Uploaded image URLs:", imageUrls);
       }

@@ -9,7 +9,7 @@ class EmbeddingService:
         self.sentence_transformer = SentenceTransformerModel()
         self.cache_service = CacheService()
     
-    def get_image_embedding(self, image, item_id=None):
+    def get_image_embedding(self, image, item_id=None, use_augmentation=True):
         # Check cache if item_id is provided
         if item_id:
             cached_embedding = self.cache_service.get("img_emb", item_id, as_numpy=True)
@@ -18,7 +18,10 @@ class EmbeddingService:
                 return cached_embedding
         
         # Generate embedding
-        embedding = self.clip_model.get_image_embedding(image)
+        if use_augmentation:
+            embedding = self.clip_model.get_image_embedding_with_augmentation(image)
+        else:
+            embedding = self.clip_model.get_image_embedding(image)
         
         # Cache if item_id is provided
         if item_id:
