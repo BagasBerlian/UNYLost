@@ -1,3 +1,4 @@
+require("dotenv").config;
 const fs = require("fs");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
@@ -49,6 +50,21 @@ class FileService {
       // Cari atau buat folder UNYLost
       this.folderId = await this.findOrCreateFolder("UNYLost");
       console.log(`Using root Google Drive folder with ID: ${this.folderId}`);
+
+      if (this.folderId) {
+        // Bagikan folder UNYLost dengan akun email Anda
+        await this.drive.permissions.create({
+          fileId: this.folderId,
+          requestBody: {
+            role: "writer",
+            type: "user",
+            emailAddress: process.env.EMAIL_USER,
+          },
+        });
+        console.log(
+          `Folder UNYLost dibagikan dengan ${process.env.EMAIL_USER}`
+        );
+      }
 
       // Buat struktur folder
       await this.setupFolderStructure();
@@ -169,7 +185,8 @@ class FileService {
         fileId: folderId,
         requestBody: {
           role: "reader",
-          type: "anyone",
+          type: "user",
+          emailAddress: process.env.EMAIL_USER,
         },
       });
       console.log(`Set public permission for folder: ${folderId}`);

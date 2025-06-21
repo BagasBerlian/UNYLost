@@ -45,14 +45,29 @@ class SimilarityService:
     # Calculate cosine similarity between two vectors
     @staticmethod
     def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
-        dot_product = np.dot(vec1, vec2)
-        norm_a = np.linalg.norm(vec1)
-        norm_b = np.linalg.norm(vec2)
-        
-        if norm_a == 0 or norm_b == 0:
-            return 0
-        
-        return dot_product / (norm_a * norm_b)
+        try:
+            # Cek apakah dimensi sama
+            if vec1.shape != vec2.shape:
+                print(f"Dimensi berbeda: vec1 {vec1.shape} vs vec2 {vec2.shape}")
+                
+                # Jika dimensi berbeda, resize ke dimensi yang lebih kecil
+                min_dim = min(vec1.shape[0], vec2.shape[0])
+                vec1 = vec1[:min_dim]
+                vec2 = vec2[:min_dim]
+                
+                print(f"Resize ke dimensi: {min_dim}")
+            
+            dot_product = np.dot(vec1, vec2)
+            norm_a = np.linalg.norm(vec1)
+            norm_b = np.linalg.norm(vec2)
+            
+            if norm_a == 0 or norm_b == 0:
+                return 0
+            
+            return dot_product / (norm_a * norm_b)
+        except Exception as e:
+            print(f"Error dalam perhitungan similarity: {e}")
+            return 0.0
     
     # Hitung similarity dengan bobot yang bisa dikonfigurasi
     @staticmethod
