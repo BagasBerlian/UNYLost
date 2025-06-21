@@ -1,0 +1,12 @@
+express 
+sequelize 
+mysql2 
+jsonwebtoken 
+bcrypt 
+multer 
+dotenv 
+cors 
+morgan 
+winston 
+axios 
+uuid
