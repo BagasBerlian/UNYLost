@@ -10,32 +10,34 @@ def load_image(image_source: Union[str, bytes]) -> Image.Image:
     try:
         if isinstance(image_source, str):
             if image_source.startswith(('http://', 'https://')):
+                print(f"Loading image from URL: {image_source}")
+                
                 try:
-                    response = requests.get(image_source, timeout=10, stream=True)
+                    headers = {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    }
+                    
+                    # Khusus untuk URL Google Drive
+                    if "drive.google.com" in image_source and "export=view" in image_source:
+                        print("Detected Google Drive URL, using special handling")
+                        # Ubah URL untuk mendapatkan akses langsung
+                        file_id = image_source.split("id=")[1].split("&")[0]
+                        direct_url = f"https://drive.google.com/uc?id={file_id}&export=download"
+                        response = requests.get(direct_url, timeout=30, headers=headers)
+                    else:
+                        response = requests.get(image_source, timeout=30, headers=headers)
+                    
                     response.raise_for_status()
                     img = Image.open(BytesIO(response.content))
-                except requests.exceptions.RequestException as e:
+                    print(f"Successfully loaded image with size: {img.size}")
+                    return img.convert('RGB')
+                except Exception as e:
                     print(f"Error downloading image from URL: {str(e)}")
-                    raise ValueError(f"Failed to download image from URL: {str(e)}")
-            elif image_source.startswith('data:image'):
-                base64_data = image_source.split(',')[1]
-                img = Image.open(BytesIO(base64.b64decode(base64_data)))
-            else:
-                try:
-                    img = Image.open(image_source)
-                except (FileNotFoundError, PermissionError) as e:
-                    print(f"Error opening image file: {str(e)}")
-                    raise ValueError(f"Failed to open image file: {str(e)}")
-        elif isinstance(image_source, bytes):
-            img = Image.open(BytesIO(image_source))
-        else:
-            raise ValueError("Unsupported image source type")
-        
-        return img.convert('RGB')
-    
+                    # Return placeholder gray image
+                    return Image.new('RGB', (224, 224), color=(128, 128, 128))
     except Exception as e:
-        print(f"Error in load_image: {str(e)}")
-        raise ValueError(f"Error loading image: {str(e)}")
+        print(f"Critical error in load_image: {str(e)}")
+        return Image.new('RGB', (224, 224), color=(128, 128, 128))
 
 # Tingkatkan kontras dan ketajaman gambar
 def enhance_image(image: Image.Image) -> Image.Image:

@@ -55,7 +55,16 @@ class ClipModel:
     # Generate embedding for text using CLIP
     def get_text_embedding(self, text):
         try:
-            inputs = self.processor(text=text, return_tensors="pt", padding=True).to(self.device)
+            # Preprocessing teks untuk memastikan konsistensi
+            if isinstance(text, str):
+                # Batasi panjang teks untuk konsistensi
+                max_tokens = 77  # Batas token CLIP
+                tokens = text.split()
+                if len(tokens) > max_tokens:
+                    text = " ".join(tokens[:max_tokens])
+                
+            # Proses dengan CLIP model
+            inputs = self.processor(text=text, return_tensors="pt", padding=True, truncation=True, max_length=77).to(self.device)
             with torch.no_grad():
                 text_features = self.model.get_text_features(**inputs)
             
@@ -65,7 +74,8 @@ class ClipModel:
         
         except Exception as e:
             print(f"Error generating text embedding: {e}")
-            raise
+            # Return zero vector dengan dimensi yang benar jika error
+            return np.zeros(512)  # CLIP biasanya menghasilkan vektor 512 dimensi
         
     # Hasilkan embedding dengan augmentasi dan rata-rata hasilnya
     def get_image_embedding_with_augmentation(self, image, num_augmentations=3):

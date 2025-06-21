@@ -159,7 +159,17 @@ class MatchService {
       for (const aiMatch of aiMatches) {
         try {
           let match;
+          console.log(
+            `Processing match with ${aiMatch.id}, similarity: ${aiMatch.similarity}`
+          );
 
+          // Cek apakah ini self-match
+          if (aiMatch.id === itemId) {
+            console.log(`Skipping self-match for item: ${itemId}`);
+            continue;
+          }
+
+          // Tentukan lost item dan found item berdasarkan tipe item saat ini
           if (type === "lost") {
             // Item yang diberikan adalah lost item
             match = await this.createMatch(
@@ -204,9 +214,33 @@ class MatchService {
         `Creating match: lost=${lostItemId}, found=${foundItemId}, sim=${similarity}`
       );
 
+      if (lostItemId === foundItemId) {
+        console.log(`Skipping self-match for item: ${lostItemId}`);
+        return null;
+      }
+
       // Periksa apakah item ada di database
       const lostItem = await LostItem.findByPk(lostItemId);
       const foundItem = await FoundItem.findByPk(foundItemId);
+
+      console.log(
+        `Lost item lookup result: ${lostItem ? "found" : "not found"}`
+      );
+      console.log(
+        `Found item lookup result: ${foundItem ? "found" : "not found"}`
+      );
+
+      if (!lostItem) {
+        console.log(
+          `Lost item ${lostItemId} tidak ditemukan, mencoba mencari di Firebase...`
+        );
+      }
+
+      if (!foundItem) {
+        console.log(
+          `Found item ${foundItemId} tidak ditemukan, mencoba mencari di Firebase...`
+        );
+      }
 
       if (!lostItem || !foundItem) {
         console.log(

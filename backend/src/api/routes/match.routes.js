@@ -8,6 +8,13 @@ router.get(
   AuthMiddleware.authenticateToken,
   MatchController.getUserMatches
 );
+
+router.get(
+  "/latest-matches",
+  AuthMiddleware.authenticateToken,
+  MatchController.getLatestMatches
+);
+
 router.get(
   "/:id",
   AuthMiddleware.authenticateToken,
@@ -22,6 +29,12 @@ router.post(
   "/trigger-manual",
   AuthMiddleware.authenticateToken,
   MatchController.triggerManualMatching
+);
+
+router.post(
+  "/force",
+  AuthMiddleware.authenticateToken,
+  MatchController.forceMatch
 );
 
 // Alias untuk kemudahan penggunaan

@@ -30,21 +30,42 @@ class EmbeddingService:
         return embedding
     
     def get_text_embedding_clip(self, text, item_id=None):
-        # Check cache if item_id is provided
+    # Check cache if item_id is provided
         if item_id:
             cached_embedding = self.cache_service.get("txt_clip_emb", item_id, as_numpy=True)
             if cached_embedding is not None:
                 print(f"Cache hit for CLIP text embedding: {item_id}")
                 return cached_embedding
         
-        # Generate embedding
-        embedding = self.clip_model.get_text_embedding(text)
-        
-        # Cache if item_id is provided
-        if item_id:
-            self.cache_service.set("txt_clip_emb", item_id, embedding)
-        
-        return embedding
+        try:
+            # Generate embedding
+            embedding = self.clip_model.get_text_embedding(text)
+            
+            # Verify embedding dimensions
+            if embedding.shape[0] != 512:
+                print(f"Warning: Unexpected embedding dimension: {embedding.shape}")
+                # Pad or truncate if needed
+                if embedding.shape[0] < 512:
+                    # Pad with zeros
+                    padded = np.zeros(512)
+                    padded[:embedding.shape[0]] = embedding
+                    embedding = padded
+                else:
+                    # Truncate
+                    embedding = embedding[:512]
+            
+            # Cache if item_id is provided
+            if item_id:
+                self.cache_service.set("txt_clip_emb", item_id, embedding)
+            
+            return embedding
+        except Exception as e:
+            print(f"Error in get_text_embedding_clip: {e}")
+            # Return zeros array with correct dimension
+            fallback = np.zeros(512)
+            if item_id:
+                self.cache_service.set("txt_clip_emb", item_id, fallback)
+            return fallback
     
     def get_text_embedding_sentence(self, text, item_id=None):
         # Check cache if item_id is provided

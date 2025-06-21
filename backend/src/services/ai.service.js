@@ -6,36 +6,38 @@ class AIService {
     this.apiUrl = config.AI_LAYER_URL;
     this.client = axios.create({
       baseURL: this.apiUrl,
-      timeout: 30000,
+      timeout: 60000,
     });
   }
 
   async processFoundItem(itemData) {
-    try {
-      console.log("Sending found item to AI Layer:", {
-        item_id: itemData.id,
-        item_name: itemData.itemName,
-        description: itemData.description,
-        image_urls: itemData.images || [],
-        collection: "found_items",
-      });
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        console.log("Sending found item to AI Layer:", {
+          item_id: itemData.id,
+          item_name: itemData.itemName,
+          description: itemData.description,
+          image_urls: itemData.images || [],
+          collection: "found_items",
+        });
 
-      const response = await this.client.post("/match/instant", {
-        item_id: itemData.id,
-        item_name: itemData.itemName,
-        description: itemData.description,
-        image_urls: itemData.images || [],
-        collection: "found_items",
-      });
+        const response = await this.client.post("/match/instant", {
+          item_id: itemData.id,
+          item_name: itemData.itemName,
+          description: itemData.description,
+          image_urls: itemData.images || [],
+          collection: "found_items",
+        });
 
-      console.log("AI Layer response:", response.data);
-      return response.data;
-    } catch (error) {
-      console.error("Error processing found item with AI:", error.message);
-      if (error.response) {
-        console.error("AI service response:", error.response.data);
+        console.log("AI Layer response:", response.data);
+        return response.data;
+      } catch (error) {
+        retries--;
+        if (retries === 0) throw error;
+        console.log(`Retrying AI processing... (${3 - retries}/3)`);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       }
-      throw new Error("Failed to process item with AI service");
     }
   }
 

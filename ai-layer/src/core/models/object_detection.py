@@ -91,9 +91,8 @@ class ObjectDetector:
     def crop_main_object(self, image):
         boxes, scores = self.detect_objects(image)
         
-        if boxes is None or len(boxes) == 0:
-            # Return original image if no objects detected
-            return image
+        if self.model is None:
+           return image
         
         # Get box with highest confidence
         best_box = boxes[np.argmax(scores)]

@@ -77,16 +77,21 @@ def expand_with_synonyms(text: str, max_synonyms=2) -> str:
 
 # Gabungkan nama dan deskripsi item dengan penanganan konteks yang lebih baik
 def combine_item_text(item_name: str, description: str, with_synonyms=True) -> str:
-    # Prioritaskan nama item dengan mengulanginya
-    item_name = clean_text(item_name)
-    description = clean_text(description)
+    # Bersihkan teks
+    item_name = clean_text(item_name) if item_name else ""
+    description = clean_text(description) if description else ""
+    
+    # Batasi panjang
+    max_desc_len = 200
+    if len(description) > max_desc_len:
+        description = description[:max_desc_len]
     
     # Gabungkan dengan bobot pada nama item
-    combined_text = f"{item_name} {item_name} {item_name} {description}"
+    combined_text = f"{item_name} {item_name} {description}"
     
-    if with_synonyms:
+    if with_synonyms and len(combined_text) < 150:  # Hanya tambahkan sinonim jika teksnya tidak terlalu panjang
         # Tambahkan sinonim untuk memperluas konteks
-        expanded_text = expand_with_synonyms(combined_text)
+        expanded_text = expand_with_synonyms(combined_text, max_synonyms=1)  # Kurangi jumlah sinonim
         return expanded_text
     
     return combined_text
