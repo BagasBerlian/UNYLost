@@ -15,4 +15,5 @@ ai-layer/logs/**
 backend/node_modules
 backend/*.env
 backend/config/*
+backend/uploads/*
 
