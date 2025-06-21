@@ -2,6 +2,9 @@ import numpy as np
 from src.core.services.embedding_service import EmbeddingService
 from src.database.firebase import FirebaseClient
 from src.core.services.cache_service import CacheService
+from src.utils.text_processing import combine_item_text, preprocess_text
+from src.core.services.similarity_service import SimilarityService
+
 
 class MatchingService:
     def __init__(self):
@@ -21,61 +24,13 @@ class MatchingService:
             return 0.0
     
     def calculate_hybrid_similarity(self, embeddings1, embeddings2):
-        weights = {
-            "image": 0.4,
-            "clip_text": 0.3,
-            "sentence_text": 0.3
-        }
-        
-        total_similarity = 0.0
-        used_weights = 0.0
-        
-        # Image similarity if both have image embeddings
-        if "image" in embeddings1 and "image" in embeddings2:
-            try:
-                if len(embeddings1["image"]) == len(embeddings2["image"]):
-                    image_similarity = self.calculate_similarity(
-                        embeddings1["image"], 
-                        embeddings2["image"]
-                    )
-                    total_similarity += weights["image"] * image_similarity
-                    used_weights += weights["image"]
-            except Exception as e:
-                print(f"Error calculating image similarity: {e}")
-        
-        # CLIP text similarity
-        if "clip_text" in embeddings1 and "clip_text" in embeddings2:
-            try:
-                if len(embeddings1["clip_text"]) == len(embeddings2["clip_text"]):
-                    clip_text_similarity = self.calculate_similarity(
-                        embeddings1["clip_text"], 
-                        embeddings2["clip_text"]
-                    )
-                    total_similarity += weights["clip_text"] * clip_text_similarity
-                    used_weights += weights["clip_text"]
-            except Exception as e:
-                print(f"Error calculating CLIP text similarity: {e}")
-        
-        # Sentence Transformer text similarity
-        if "sentence_text" in embeddings1 and "sentence_text" in embeddings2:
-            try:
-                if len(embeddings1["sentence_text"]) == len(embeddings2["sentence_text"]):
-                    sentence_text_similarity = self.calculate_similarity(
-                        embeddings1["sentence_text"], 
-                        embeddings2["sentence_text"]
-                    )
-                    total_similarity += weights["sentence_text"] * sentence_text_similarity
-                    used_weights += weights["sentence_text"]
-            except Exception as e:
-                print(f"Error calculating Sentence Transformer similarity: {e}")
-        
-        # Normalize the total similarity score
-        if used_weights > 0:
-            total_similarity /= used_weights
-        else:
-            print("Warning: No compatible embeddings found for similarity calculation")
-        
-        return total_similarity
+        try:
+            # Gunakan fungsi pembobotan dinamis
+            result = SimilarityService.calculate_hybrid_similarity(embeddings1, embeddings2)
+            return result["total"]
+        except Exception as e:
+            print(f"Error calculating hybrid similarity: {e}")
+            return 0.0
     
     def find_matches(self, item_embeddings, candidate_embeddings, threshold=0.75):
         matches = []
@@ -127,7 +82,8 @@ class MatchingService:
         item_embeddings = {}
         
         if "item_name" in item_data and "description" in item_data:
-            text = f"{item_data['item_name']} {item_data['description']}"
+            # Preproses teks dengan lemmatization dan normalisasi
+            text = combine_item_text(item_data['item_name'], item_data['description'], with_synonyms=True)
             
             item_embeddings["clip_text"] = self.embedding_service.get_text_embedding_clip(text, item_data.get("item_id"))
             item_embeddings["sentence_text"] = self.embedding_service.get_text_embedding_sentence(text, item_data.get("item_id"))

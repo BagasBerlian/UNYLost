@@ -2,6 +2,9 @@ import torch
 from PIL import Image
 import numpy as np
 from transformers import CLIPProcessor, CLIPModel
+from src.utils.image_processing import process_image_with_object_detection
+from src.utils.augmentation import generate_augmented_images
+
 
 class ClipModel:
     _instance = None
@@ -26,7 +29,6 @@ class ClipModel:
             print(f"Error loading CLIP model: {e}")
             raise
         
-    # Generate embedding for an image using CLIP
     def get_image_embedding(self, image):
         try:
             if isinstance(image, str):
@@ -34,7 +36,11 @@ class ClipModel:
             elif isinstance(image, bytes):
                 image = Image.open(BytesIO(image)).convert('RGB')
             
-            inputs = self.processor(images=image, return_tensors="pt").to(self.device)
+            # Gunakan preprocessing dengan deteksi objek
+            processed_image = process_image_with_object_detection(image)
+            
+            # Lanjutkan dengan pembuatan embeddings seperti biasa
+            inputs = self.processor(images=processed_image, return_tensors="pt").to(self.device)
             with torch.no_grad():
                 image_features = self.model.get_image_features(**inputs)
             
@@ -59,6 +65,45 @@ class ClipModel:
         
         except Exception as e:
             print(f"Error generating text embedding: {e}")
+            raise
+        
+    # Hasilkan embedding dengan augmentasi dan rata-rata hasilnya
+    def get_image_embedding_with_augmentation(self, image, num_augmentations=3):
+        try:
+            if isinstance(image, str):
+                image = Image.open(image).convert('RGB')
+            elif isinstance(image, bytes):
+                image = Image.open(BytesIO(image)).convert('RGB')
+                        # Import fungsi augmentasi    
+            
+            # Hasilkan beberapa versi augmentasi
+            augmented_images = generate_augmented_images(image, num_augmentations)
+            all_embeddings = []
+            
+            # Hasilkan embedding untuk setiap versi
+            for aug_image in augmented_images:
+                # Preprocess
+                processed_image = process_image_with_object_detection(aug_image)
+                
+                # Generate embedding
+                inputs = self.processor(images=processed_image, return_tensors="pt").to(self.device)
+                with torch.no_grad():
+                    image_features = self.model.get_image_features(**inputs)
+                
+                # Normalize
+                embedding = image_features / image_features.norm(dim=1, keepdim=True)
+                all_embeddings.append(embedding.cpu().numpy()[0])
+            
+            # Rata-rata semua embeddings untuk mendapatkan representasi robust
+            avg_embedding = np.mean(all_embeddings, axis=0)
+            
+            # Normalize hasil akhir
+            avg_embedding = avg_embedding / np.linalg.norm(avg_embedding)
+            
+            return avg_embedding
+            
+        except Exception as e:
+            print(f"Error generating image embedding with augmentation: {e}")
             raise
         
     # Calculate cosine similarity between two embeddings

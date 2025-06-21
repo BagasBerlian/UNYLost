@@ -1,7 +1,47 @@
 import numpy as np
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 class SimilarityService:
+    # Hitung bobot dinamis berdasarkan ketersediaan dan kualitas embeddings
+    @staticmethod
+    def compute_dynamic_weights(embeddings1: Dict, embeddings2: Dict) -> Dict[str, float]:
+        weights = {
+            "image": 0.4,
+            "clip_text": 0.3, 
+            "sentence_text": 0.3
+        }
+        
+        # Jika kedua item memiliki gambar, prioritaskan gambar
+        if "image" in embeddings1 and "image" in embeddings2:
+            weights["image"] = 0.5
+            weights["clip_text"] = 0.25
+            weights["sentence_text"] = 0.25
+        else:
+            # Jika tidak ada gambar, prioritaskan text
+            weights["clip_text"] = 0.5
+            weights["sentence_text"] = 0.5
+            weights["image"] = 0.0
+        
+        # Jika nama item sangat mirip (memiliki kesamaan > 0.8), beri bobot lebih ke teks
+        if "clip_text" in embeddings1 and "clip_text" in embeddings2:
+            text_similarity = SimilarityService.cosine_similarity(
+                embeddings1["clip_text"], 
+                embeddings2["clip_text"]
+            )
+            
+            if text_similarity > 0.8:
+                # Dengan kesamaan teks tinggi, teks lebih penting
+                weights["clip_text"] += 0.1
+                weights["sentence_text"] += 0.1
+                
+                if weights["image"] > 0.2:
+                    weights["image"] -= 0.2
+        
+        # Pastikan jumlah bobot adalah 1.0
+        total = sum(weights.values())
+        return {k: v/total for k, v in weights.items()}
+    
+    
     # Calculate cosine similarity between two vectors
     @staticmethod
     def cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:
@@ -14,20 +54,17 @@ class SimilarityService:
         
         return dot_product / (norm_a * norm_b)
     
-    # Calculate similarity with configurable weights
+    # Hitung similarity dengan bobot yang bisa dikonfigurasi
     @staticmethod
-    def calculate_hybrid_similarity(item1: Dict, item2: Dict, weights: Dict = None) -> Dict:
+    def calculate_hybrid_similarity(item1: Dict, item2: Dict, weights: Optional[Dict] = None) -> Dict:
+        # Jika bobot tidak disediakan, gunakan fungsi bobot dinamis
         if weights is None:
-            weights = {
-                "image": 0.4,
-                "clip_text": 0.3, 
-                "sentence_text": 0.3
-            }
+            weights = SimilarityService.compute_dynamic_weights(item1, item2)
         
         scores = {}
         used_weights = {}
         
-        # Calculate similarity for each embedding type
+        # Hitung similarity untuk setiap tipe embedding
         for emb_type, weight in weights.items():
             if emb_type in item1 and emb_type in item2:
                 scores[emb_type] = SimilarityService.cosine_similarity(
@@ -36,7 +73,7 @@ class SimilarityService:
                 )
                 used_weights[emb_type] = weight
         
-        # Calculate weighted average
+        # Hitung weighted average
         if not scores:
             return {"total": 0.0, "components": {}}
         
@@ -51,8 +88,7 @@ class SimilarityService:
     
     # Find and rank matches by similarity
     @staticmethod
-    def rank_matches(query_item: Dict, candidates: Dict[str, Dict], 
-                     threshold: float = 0.75, max_results: int = 10) -> List[Dict]:
+    def rank_matches(query_item: Dict, candidates: Dict[str, Dict], threshold: float = 0.75, max_results: int = 10) ->List[Dict]:
         matches = []
         
         for candidate_id, candidate in candidates.items():
